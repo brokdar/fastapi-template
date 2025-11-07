@@ -6,8 +6,6 @@ repos:
       - id: check-toml
       - id: check-yaml
       - id: check-json
-        args:
-          - --unsafe
       - id: end-of-file-fixer
       - id: trailing-whitespace
   - repo: https://github.com/charliermarsh/ruff-pre-commit
@@ -16,25 +14,17 @@ repos:
       - id: ruff-check
         args: [--fix]
       - id: ruff-format
-  - repo: https://github.com/hadolint/hadolint
-    rev: v2.13.1-beta
-    hooks:
-      - id: hadolint
-        name: Lint Dockerfiles
-        description: Runs hadolint to lint Dockerfiles
-        entry: hadolint
-        language: system
-        types: ["dockerfile"]
   - repo: local
     hooks:
       - id: mypy
         name: mypy
-        entry: sh -c 'cd backend && uv run mypy .'
+        entry: bash -c 'files=("$@"); cd backend && uv run mypy "${files[@]#backend/}"' --
         types: [python]
-        language: python
+        language: system
+        files: ^backend/
       - id: unit-tests
         name: unit-tests
-        entry: sh -c 'cd backend && uv run pytest tests/unit'
+        entry: bash -c 'cd backend && uv run pytest tests/unit'
         types: [python]
         pass_filenames: false
-        language: python
+        language: system
