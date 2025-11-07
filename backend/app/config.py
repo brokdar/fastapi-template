@@ -1,9 +1,38 @@
+import secrets
 from functools import lru_cache
-from typing import Literal
+from typing import Annotated, Literal
 
+from pydantic import BaseModel, Field, PostgresDsn, SecretStr, computed_field
+from pydantic_core import MultiHostUrl
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
+
+
+class LogSettings(BaseModel):
+    """Logging configuration."""
+
+    LEVEL: LogLevel = "INFO"
+    FILE_PATH: str | None = None
+    DISABLE_COLORS: bool = False
+
+
+class DatabaseSettings(BaseModel):
+    """Database connection configuration."""
+
+    SERVER: str = "localhost"
+    PORT: Annotated[int, Field(ge=1, le=65535)] = 5432
+    USER: str = "postgres"
+    PASSWORD: Annotated[SecretStr, Field(min_length=16)] = SecretStr("")
+    DB: str = ""
+
+
+class SuperUserSettings(BaseModel):
+    """Superuser configuration."""
+
+    NAME: str = "admin"
+    EMAIL: str = "admin@example.com"
+    PASSWORD: Annotated[SecretStr, Field(min_length=16)] = SecretStr("admin")
 
 
 class Settings(BaseSettings):
@@ -14,9 +43,12 @@ class Settings(BaseSettings):
     APPLICATION_NAME: str = "FastAPI Supabase Template"
     CORS_ORIGINS: list[str] = ["*"]
 
-    LOG_LEVEL: LogLevel = "INFO"
-    LOG_FILE_PATH: str | None = None
-    LOG_DISABLE_COLORS: bool = False
+    LOG: LogSettings = LogSettings()
+    DATABASE: DatabaseSettings = DatabaseSettings()
+    SUPER_USER: SuperUserSettings = SuperUserSettings()
+    JWT_SECRET_KEY: Annotated[SecretStr, Field(min_length=32)] = SecretStr(
+        secrets.token_urlsafe(32)
+    )
 
     model_config = SettingsConfigDict(
         env_nested_delimiter="__",
@@ -25,8 +57,38 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def async_database_url(self) -> PostgresDsn:
+        """Returns the database connection URL."""
+        return PostgresDsn(
+            MultiHostUrl.build(
+                scheme="postgresql+asyncpg",
+                username=self.DATABASE.USER,
+                password=self.DATABASE.PASSWORD.get_secret_value(),
+                host=self.DATABASE.SERVER,
+                port=self.DATABASE.PORT,
+                path=self.DATABASE.DB,
+            )
+        )
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def sync_database_url(self) -> PostgresDsn:
+        """Get the sync database URL for Alembic."""
+        return PostgresDsn(
+            MultiHostUrl.build(
+                scheme="postgresql+psycopg",
+                username=self.DATABASE.USER,
+                password=self.DATABASE.PASSWORD.get_secret_value(),
+                host=self.DATABASE.SERVER,
+                port=self.DATABASE.PORT,
+                path=self.DATABASE.DB,
+            )
+        )
+
 
 @lru_cache
 def get_settings() -> Settings:
     """Get cached application settings."""
-    return Settings()
+    return Settings()  # type: ignore[call-arg]

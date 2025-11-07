@@ -5,21 +5,26 @@ repos:
       - id: check-added-large-files
       - id: check-toml
       - id: check-yaml
+      - id: check-json
         args:
           - --unsafe
       - id: end-of-file-fixer
-        exclude: |
-            (?x)^(
-                frontend/src/client/.*|
-            )$
       - id: trailing-whitespace
-        exclude: ^frontend/src/client/.*
   - repo: https://github.com/charliermarsh/ruff-pre-commit
     rev: v0.14.4
     hooks:
       - id: ruff-check
-        args: [ --fix ]
+        args: [--fix]
       - id: ruff-format
+  - repo: https://github.com/hadolint/hadolint
+    rev: v2.13.1-beta
+    hooks:
+      - id: hadolint
+        name: Lint Dockerfiles
+        description: Runs hadolint to lint Dockerfiles
+        entry: hadolint
+        language: system
+        types: ["dockerfile"]
   - repo: local
     hooks:
       - id: mypy

@@ -1,13 +1,88 @@
 services:
-  api:
+  db:
+    image: postgres:15
+    restart: always
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      retries: 5
+      start_period: 30s
+      timeout: 10s
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD?Variable not set}
+      - POSTGRES_USER=${POSTGRES_USER?Variable not set}
+      - POSTGRES_DB=${POSTGRES_DB?Variable not set}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  pre-start:
     restart: unless-stopped
     ports:
       - "8000:8000"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000${API_PATH}/health"]
       interval: 10s
       timeout: 5s
       retries: 5
+    command: sh scripts/prestart.sh
+    env_file:
+      - .env
+    environment:
+      - DATABASE__SERVER=${POSTGRES_HOST}
+      - DATABASE__PORT=${POSTGRES_PORT}
+      - DATABASE__USER=${POSTGRES_USER}
+      - DATABASE__PASSWORD=${POSTGRES_PASSWORD}
+      - DATABASE__DB=${POSTGRES_DB}
+      - SUPER_USER__NAME=${SUPER_USER_NAME}
+      - SUPER_USER__EMAIL=${SUPER_USER_EMAIL}
+      - SUPER_USER__PASSWORD=${SUPER_USER_PASSWORD}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - LOG__LEVEL=${LOG_LEVEL}
+      - API_PATH=${API_PATH}
+    depends_on:
+      db:
+        condition: service_healthy
+        restart: true
     build:
       context: ./backend
       dockerfile: Dockerfile
+
+  api:
+    restart: unless-stopped
+    ports:
+      - "8001:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000${API_PATH}/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    env_file:
+      - .env
+    environment:
+      - DATABASE__SERVER=${POSTGRES_HOST}
+      - DATABASE__PORT=${POSTGRES_PORT}
+      - DATABASE__USER=${POSTGRES_USER}
+      - DATABASE__PASSWORD=${POSTGRES_PASSWORD}
+      - DATABASE__DB=${POSTGRES_DB}
+      - SUPER_USER__NAME=${SUPER_USER_NAME}
+      - SUPER_USER__EMAIL=${SUPER_USER_EMAIL}
+      - SUPER_USER__PASSWORD=${SUPER_USER_PASSWORD}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - LOG__LEVEL=${LOG_LEVEL}
+      - API_PATH=${API_PATH}
+    depends_on:
+      db:
+        condition: service_healthy
+        restart: true
+      pre-start:
+        condition: service_completed_successfully
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+
+volumes:
+  postgres-data:
