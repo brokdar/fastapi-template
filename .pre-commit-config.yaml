@@ -1,0 +1,35 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-added-large-files
+      - id: check-toml
+      - id: check-yaml
+        args:
+          - --unsafe
+      - id: end-of-file-fixer
+        exclude: |
+            (?x)^(
+                frontend/src/client/.*|
+            )$
+      - id: trailing-whitespace
+        exclude: ^frontend/src/client/.*
+  - repo: https://github.com/charliermarsh/ruff-pre-commit
+    rev: v0.14.4
+    hooks:
+      - id: ruff-check
+        args: [ --fix ]
+      - id: ruff-format
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy
+        entry: sh -c 'cd backend && uv run mypy .'
+        types: [python]
+        language: python
+      - id: unit-tests
+        name: unit-tests
+        entry: sh -c 'cd backend && uv run pytest tests/unit'
+        types: [python]
+        pass_filenames: false
+        language: python

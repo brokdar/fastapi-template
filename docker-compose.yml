@@ -1,0 +1,13 @@
+services:
+  api:
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
