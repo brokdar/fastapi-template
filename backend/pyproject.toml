@@ -8,14 +8,27 @@ requires-python = ">=3.12"
 dependencies = [
     "alembic>=1.17.1",
     "asyncpg>=0.30.0",
+    "bcrypt>=4.3.0",
     "fastapi-users>=15.0.1",
     "fastapi[standard]>=0.121.0",
     "psycopg[binary]>=3.2.12",
     "pydantic>=2.12.4",
     "pydantic-settings>=2.11.0",
+    "pyjwt[crypto]>=2.10.1",
     "sqlalchemy[asyncio]>=2.0.44",
     "sqlmodel>=0.0.27",
     "structlog>=25.5.0",
+]
+
+[dependency-groups]
+dev = [
+    "coverage>=7.11.0",
+    "mypy>=1.18.2",
+    "pytest>=8.4.2",
+    "pytest-asyncio>=1.2.0",
+    "pytest-cov>=7.0.0",
+    "pytest-mock>=3.15.1",
+    "ruff>=0.14.4",
 ]
 
 [build-system]
@@ -75,14 +88,3 @@ ignore-decorators = ["typing.overload"]
 [tool.ruff.lint.pyupgrade]
 # Preserve types, even if a file imports `from __future__ import annotations`.
 keep-runtime-typing = true
-
-[dependency-groups]
-dev = [
-    "coverage>=7.11.0",
-    "mypy>=1.18.2",
-    "pytest>=8.4.2",
-    "pytest-asyncio>=1.2.0",
-    "pytest-cov>=7.0.0",
-    "pytest-mock>=3.15.1",
-    "ruff>=0.14.4",
-]

@@ -35,6 +35,17 @@ class SuperUserSettings(BaseModel):
     PASSWORD: Annotated[SecretStr, Field(min_length=16)] = SecretStr("admin")
 
 
+class JWTSettings(BaseModel):
+    """JWT authentication configuration."""
+
+    SECRET_KEY: Annotated[SecretStr, Field(min_length=32)] = SecretStr(
+        secrets.token_urlsafe(32)
+    )
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+
+
 class Settings(BaseSettings):
     """Application configuration settings."""
 
@@ -46,9 +57,7 @@ class Settings(BaseSettings):
     LOG: LogSettings = LogSettings()
     DATABASE: DatabaseSettings = DatabaseSettings()
     SUPER_USER: SuperUserSettings = SuperUserSettings()
-    JWT_SECRET_KEY: Annotated[SecretStr, Field(min_length=32)] = SecretStr(
-        secrets.token_urlsafe(32)
-    )
+    JWT: JWTSettings = JWTSettings()
 
     model_config = SettingsConfigDict(
         env_nested_delimiter="__",
@@ -91,4 +100,4 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     """Get cached application settings."""
-    return Settings()  # type: ignore[call-arg]
+    return Settings()

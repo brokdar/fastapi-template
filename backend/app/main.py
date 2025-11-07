@@ -23,9 +23,9 @@ settings = get_settings()
 async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
     """Configure logging after uvicorn starts but before handling requests."""
     configure_logging(
-        log_level=settings.LOG_LEVEL,
-        log_file_path=settings.LOG_FILE_PATH,
-        disable_colors=settings.LOG_DISABLE_COLORS,
+        log_level=settings.LOG.LEVEL,
+        log_file_path=settings.LOG.FILE_PATH,
+        disable_colors=settings.LOG.DISABLE_COLORS,
     )
     yield
 
