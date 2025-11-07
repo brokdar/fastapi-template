@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.routing import APIRoute
 
 from app.config import get_settings
+from app.core.exceptions.handlers import setup_exception_handlers
 from app.core.logging.config import configure_logging
 from app.routes import setup_routes
 
@@ -37,6 +38,8 @@ app = FastAPI(
     generate_unique_id_function=custom_generate_unique_id,
     lifespan=lifespan,
 )
+
+setup_exception_handlers(app)
 
 if settings.CORS_ORIGINS:
     origins = [origin.strip() for origin in settings.CORS_ORIGINS]
