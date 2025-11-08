@@ -1,39 +1,39 @@
-"""Authentication module for JWT-based authentication and authorization."""
+"""Multi-provider authentication module."""
 
-from app.core.auth.dependencies import (
-    OptionalUserDependency,
-    RequiresUserDependency,
-    get_current_user,
-    get_optional_user,
-    require_role,
-)
+from app.core.auth.config import AuthSettings
 from app.core.auth.exceptions import (
     InactiveUserError,
     InsufficientPermissionsError,
     InvalidTokenError,
     TokenExpiredError,
 )
-from app.core.auth.schemas import LoginRequest, RefreshRequest, TokenResponse
-from app.core.auth.services import AuthService
-from app.core.auth.tokens import (
+from app.core.auth.providers.base import AuthProvider
+from app.core.auth.providers.jwt import (
+    JWTAuthProvider,
+    JWTAuthService,
+    LoginRequest,
+    RefreshRequest,
+    TokenPayload,
+    TokenResponse,
     create_access_token,
     create_refresh_token,
     verify_token,
 )
+from app.core.auth.services import AuthService
 
 __all__ = [
+    "AuthProvider",
     "AuthService",
+    "AuthSettings",
+    "JWTAuthProvider",
+    "JWTAuthService",
     "LoginRequest",
     "RefreshRequest",
     "TokenResponse",
+    "TokenPayload",
     "create_access_token",
     "create_refresh_token",
     "verify_token",
-    "get_current_user",
-    "get_optional_user",
-    "RequiresUserDependency",
-    "OptionalUserDependency",
-    "require_role",
     "InvalidTokenError",
     "TokenExpiredError",
     "InactiveUserError",

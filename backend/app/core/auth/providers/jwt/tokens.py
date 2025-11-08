@@ -6,26 +6,34 @@ from typing import Literal
 import jwt
 from pydantic import ValidationError
 
-from app.config import get_settings
 from app.core.auth.exceptions import InvalidTokenError, TokenExpiredError
-from app.core.auth.schemas import TokenPayload
+from app.core.auth.providers.jwt.schemas import TokenPayload
 from app.domains.users.models import UserRole
 
 
-def create_access_token(user_id: int, username: str, role: UserRole) -> str:
+def create_access_token(
+    user_id: int,
+    username: str,
+    role: UserRole,
+    secret_key: str,
+    algorithm: str = "HS256",
+    expire_minutes: int = 15,
+) -> str:
     """Create a new JWT access token.
 
     Args:
         user_id: User's unique identifier.
         username: Username of the user.
         role: User's role for authorization.
+        secret_key: Secret key for JWT signing.
+        algorithm: JWT signing algorithm (default: HS256).
+        expire_minutes: Token expiration time in minutes (default: 15).
 
     Returns:
         str: Encoded JWT access token.
     """
-    jwt_settings = get_settings().JWT
     now = datetime.now(UTC)
-    expires = now + timedelta(minutes=jwt_settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    expires = now + timedelta(minutes=expire_minutes)
 
     payload = {
         "sub": user_id,
@@ -36,25 +44,28 @@ def create_access_token(user_id: int, username: str, role: UserRole) -> str:
         "type": "access",
     }
 
-    return jwt.encode(
-        payload,
-        jwt_settings.SECRET_KEY.get_secret_value(),
-        algorithm=jwt_settings.ALGORITHM,
-    )
+    return jwt.encode(payload, secret_key, algorithm=algorithm)
 
 
-def create_refresh_token(user_id: int) -> str:
+def create_refresh_token(
+    user_id: int,
+    secret_key: str,
+    algorithm: str = "HS256",
+    expire_days: int = 7,
+) -> str:
     """Create a new JWT refresh token.
 
     Args:
         user_id: User's unique identifier.
+        secret_key: Secret key for JWT signing.
+        algorithm: JWT signing algorithm (default: HS256).
+        expire_days: Token expiration time in days (default: 7).
 
     Returns:
         str: Encoded JWT refresh token.
     """
-    jwt_settings = get_settings().JWT
     now = datetime.now(UTC)
-    expires = now + timedelta(days=jwt_settings.REFRESH_TOKEN_EXPIRE_DAYS)
+    expires = now + timedelta(days=expire_days)
 
     payload = {
         "sub": user_id,
@@ -63,19 +74,22 @@ def create_refresh_token(user_id: int) -> str:
         "type": "refresh",
     }
 
-    return jwt.encode(
-        payload,
-        jwt_settings.SECRET_KEY.get_secret_value(),
-        algorithm=jwt_settings.ALGORITHM,
-    )
+    return jwt.encode(payload, secret_key, algorithm=algorithm)
 
 
-def verify_token(token: str, token_type: Literal["access", "refresh"]) -> TokenPayload:
+def verify_token(
+    token: str,
+    token_type: Literal["access", "refresh"],
+    secret_key: str,
+    algorithm: str = "HS256",
+) -> TokenPayload:
     """Verify and decode a JWT token.
 
     Args:
         token: JWT token string to verify.
         token_type: Expected token type ("access" or "refresh").
+        secret_key: Secret key for JWT verification.
+        algorithm: JWT signing algorithm (default: HS256).
 
     Returns:
         TokenPayload: Validated token payload.
@@ -84,14 +98,8 @@ def verify_token(token: str, token_type: Literal["access", "refresh"]) -> TokenP
         TokenExpiredError: If token has expired.
         InvalidTokenError: If token is invalid or malformed.
     """
-    jwt_settings = get_settings().JWT
-
     try:
-        payload = jwt.decode(
-            token,
-            jwt_settings.SECRET_KEY.get_secret_value(),
-            algorithms=[jwt_settings.ALGORITHM],
-        )
+        payload = jwt.decode(token, secret_key, algorithms=[algorithm])
 
         if payload.get("type") != token_type:
             raise InvalidTokenError(

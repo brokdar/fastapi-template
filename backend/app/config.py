@@ -1,10 +1,11 @@
-import secrets
 from functools import lru_cache
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, PostgresDsn, SecretStr, computed_field
 from pydantic_core import MultiHostUrl
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from app.core.auth.config import AuthSettings
 
 LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
 
@@ -35,17 +36,6 @@ class SuperUserSettings(BaseModel):
     PASSWORD: Annotated[SecretStr, Field(min_length=16)] = SecretStr("admin")
 
 
-class JWTSettings(BaseModel):
-    """JWT authentication configuration."""
-
-    SECRET_KEY: Annotated[SecretStr, Field(min_length=32)] = SecretStr(
-        secrets.token_urlsafe(32)
-    )
-    ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
-    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
-
-
 class Settings(BaseSettings):
     """Application configuration settings."""
 
@@ -57,7 +47,7 @@ class Settings(BaseSettings):
     LOG: LogSettings = LogSettings()
     DATABASE: DatabaseSettings = DatabaseSettings()
     SUPER_USER: SuperUserSettings = SuperUserSettings()
-    JWT: JWTSettings = JWTSettings()
+    AUTH: AuthSettings = AuthSettings()
 
     model_config = SettingsConfigDict(
         env_nested_delimiter="__",

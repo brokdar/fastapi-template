@@ -1,6 +1,6 @@
-"""Authentication API endpoints.
+"""JWT authentication API endpoints.
 
-This module defines REST API endpoints for authentication operations including
+This module defines REST API endpoints for JWT authentication operations including
 login and token refresh.
 """
 
@@ -8,17 +8,21 @@ import structlog
 from fastapi import status
 from fastapi.routing import APIRouter
 
-from app.core.auth.schemas import LoginRequest, RefreshRequest, TokenResponse
+from app.core.auth.providers.jwt.schemas import (
+    LoginRequest,
+    RefreshRequest,
+    TokenResponse,
+)
 from app.core.exceptions.schemas import (
     ErrorResponse,
     InternalServerErrorResponse,
     ValidationErrorResponse,
 )
-from app.dependencies import AuthServiceDependency
+from app.dependencies import JWTAuthServiceDependency
 
-router = APIRouter(prefix="/auth", tags=["auth"])
+router = APIRouter(prefix="/auth", tags=["auth-jwt"])
 
-logger = structlog.get_logger("auth.endpoints")
+logger = structlog.get_logger("auth.jwt.endpoints")
 
 
 @router.post(
@@ -45,7 +49,7 @@ logger = structlog.get_logger("auth.endpoints")
 )
 async def login(
     credentials: LoginRequest,
-    auth_service: AuthServiceDependency,
+    auth_service: JWTAuthServiceDependency,
 ) -> TokenResponse:
     """Authenticate user and issue JWT tokens.
 
@@ -54,7 +58,7 @@ async def login(
 
     Args:
         credentials: Login credentials (username/email + password).
-        auth_service: Injected authentication service.
+        auth_service: Injected JWT authentication service.
 
     Returns:
         TokenResponse: Access and refresh JWT tokens.
@@ -101,7 +105,7 @@ async def login(
 )
 async def refresh_tokens(
     refresh_request: RefreshRequest,
-    auth_service: AuthServiceDependency,
+    auth_service: JWTAuthServiceDependency,
 ) -> TokenResponse:
     """Refresh JWT tokens using a valid refresh token.
 
@@ -110,7 +114,7 @@ async def refresh_tokens(
 
     Args:
         refresh_request: Request containing the refresh token.
-        auth_service: Injected authentication service.
+        auth_service: Injected JWT authentication service.
 
     Returns:
         TokenResponse: New access and refresh JWT tokens.

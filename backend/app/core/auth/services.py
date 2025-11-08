@@ -1,172 +1,194 @@
-"""Authentication service for login and token refresh operations."""
+"""Authentication orchestration service managing multiple providers."""
+
+from collections.abc import Awaitable, Callable, Sequence
 
 import structlog
+from fastapi import Depends, FastAPI, Request
 
-from app.core.auth.exceptions import InactiveUserError
-from app.core.auth.schemas import TokenResponse
-from app.core.auth.tokens import (
-    create_access_token,
-    create_refresh_token,
-    verify_token,
-)
-from app.core.security.password import PasswordHasher
-from app.domains.users.exceptions import InvalidCredentialsError, UserNotFoundError
-from app.domains.users.models import User
+from app.core.auth.exceptions import InvalidTokenError
+from app.core.auth.providers.base import AuthProvider
+from app.core.exceptions import AuthorizationError
+from app.domains.users.models import User, UserRole
 from app.domains.users.repositories import UserRepository
 
 logger = structlog.get_logger("auth")
 
+type UserRepositoryDependency = Callable[..., UserRepository]
+
 
 class AuthService:
-    """Authentication service handling login and token refresh.
+    """Manages authentication for a FastAPI application.
 
-    Attributes:
-        user_repository: Repository for user data access.
-        password_service: Service for password verification.
+    Coordinates multiple authentication providers and provides FastAPI
+    dependencies for route protection and role-based access control.
+
+    Providers are tried in the order they are registered. The first provider
+    where can_authenticate() returns True will be used for authentication.
+
+    Uses the dependency callable pattern: stores a callable for user repository
+    which FastAPI resolves per-request, ensuring fresh database sessions.
     """
 
     def __init__(
-        self, user_repository: UserRepository, password_service: PasswordHasher
+        self,
+        get_user_repository: UserRepositoryDependency,
+        providers: Sequence[AuthProvider],
     ) -> None:
-        """Initialize AuthService.
+        """Initialize AuthService with dependency callable and providers.
 
         Args:
-            user_repository: Repository for user data access.
-            password_service: Service for password hashing and verification.
+            get_user_repository: Callable that returns UserRepository (dependency).
+            providers: List of authentication providers in order of priority.
         """
-        self.user_repository = user_repository
-        self.password_service = password_service
+        self.get_user_repository = get_user_repository
+        self._providers = providers
 
-    async def login(self, username_or_email: str, password: str) -> TokenResponse:
-        """Authenticate user and issue JWT tokens.
+    @property
+    def require_user(self) -> Callable[..., Awaitable[User]]:
+        """FastAPI dependency for requiring authenticated user.
 
-        Args:
-            username_or_email: Username or email address.
-            password: Plain text password.
+        Returns a dependency function that injects UserRepository per-request
+        and authenticates the user using registered providers.
+
+        Use this as a dependency in route handlers to protect endpoints.
+
+        Example:
+            @app.get("/protected")
+            async def protected_route(user: User = Depends(auth_service.require_user)):
+                return {"user_id": user.id}
 
         Returns:
-            TokenResponse: Access and refresh tokens.
+            Dependency function that authenticates and returns the user.
 
         Raises:
-            InvalidCredentialsError: If credentials are invalid.
-            InactiveUserError: If user account is inactive.
+            InvalidTokenError: If authentication fails.
         """
-        user = await self._get_user_by_identifier(username_or_email)
-        self._verify_password(user, password)
-        self._check_active(user)
 
-        if user.id is None:
-            raise InvalidCredentialsError("User ID is missing")
+        async def dependency(
+            request: Request,
+            user_repository: UserRepository = Depends(self.get_user_repository),
+        ) -> User:
+            for provider in self._providers:
+                if not provider.can_authenticate(request):
+                    logger.debug(
+                        "Provider cannot authenticate request",
+                        provider=provider.name,
+                    )
+                    continue
 
-        access_token = create_access_token(user.id, user.username, user.role)
-        refresh_token = create_refresh_token(user.id)
+                logger.debug(
+                    "Attempting authentication",
+                    provider=provider.name,
+                )
 
-        logger.info(
-            "User logged in successfully",
-            user_id=user.id,
-            username=user.username,
-        )
+                if user := await provider.authenticate(request, user_repository):
+                    logger.info(
+                        "User authenticated successfully",
+                        provider=provider.name,
+                        user_id=user.id,
+                        username=user.username,
+                    )
+                    return user
 
-        return TokenResponse(
-            access_token=access_token,
-            refresh_token=refresh_token,
-        )
+            logger.warning(
+                "Authentication failed for all providers",
+                providers_tried=[p.name for p in self._providers],
+            )
+            raise InvalidTokenError("Authentication failed")
 
-    async def refresh_tokens(self, refresh_token: str) -> TokenResponse:
-        """Issue new token pair using refresh token.
+        return dependency
+
+    def require_roles(self, *roles: UserRole) -> Callable[..., Awaitable[User]]:
+        """FastAPI dependency factory for role-based access control.
+
+        Creates a dependency that requires the user to have one of the
+        specified roles. Injects UserRepository per-request and performs
+        authentication before checking roles.
 
         Args:
-            refresh_token: Valid refresh token.
+            *roles: One or more required roles (user must have at least one).
 
         Returns:
-            TokenResponse: New access and refresh tokens.
+            Dependency function that authenticates user and checks role.
 
         Raises:
-            UserNotFoundError: If user no longer exists.
-            InactiveUserError: If user account is inactive.
-            InvalidTokenError: If token is invalid.
-            TokenExpiredError: If token has expired.
+            InvalidTokenError: If authentication fails.
+            AuthorizationError: If user doesn't have required role.
+
+        Example:
+            @app.get("/admin")
+            async def admin_only(
+                user: User = Depends(auth_service.require_roles(UserRole.ADMIN))
+            ):
+                return {"admin": user.username}
         """
-        token_payload = verify_token(refresh_token, "refresh")
 
-        user = await self.user_repository.get_by_id(token_payload.sub)
-        if not user:
-            raise UserNotFoundError(message="User not found", user_id=token_payload.sub)
+        async def dependency(
+            request: Request,
+            user_repository: UserRepository = Depends(self.get_user_repository),
+        ) -> User:
+            # Authenticate user (same logic as require_user)
+            authenticated_user: User | None = None
+            for provider in self._providers:
+                if not provider.can_authenticate(request):
+                    logger.debug(
+                        "Provider cannot authenticate request",
+                        provider=provider.name,
+                    )
+                    continue
 
-        self._check_active(user)
+                logger.debug(
+                    "Attempting authentication",
+                    provider=provider.name,
+                )
 
-        if user.id is None:
-            raise UserNotFoundError(message="User ID is missing", user_id=None)
+                if user := await provider.authenticate(request, user_repository):
+                    logger.info(
+                        "User authenticated successfully",
+                        provider=provider.name,
+                        user_id=user.id,
+                        username=user.username,
+                    )
+                    authenticated_user = user
+                    break
 
-        access_token = create_access_token(user.id, user.username, user.role)
-        new_refresh_token = create_refresh_token(user.id)
+            if not authenticated_user:
+                logger.warning(
+                    "Authentication failed for all providers",
+                    providers_tried=[p.name for p in self._providers],
+                )
+                raise InvalidTokenError("Authentication failed")
 
-        logger.info(
-            "Tokens refreshed successfully",
-            user_id=user.id,
-            username=user.username,
-        )
+            # Check role authorization
+            if authenticated_user.role not in roles:
+                logger.warning(
+                    "User lacks required role",
+                    user_id=authenticated_user.id,
+                    user_role=authenticated_user.role,
+                    required_roles=[r.value for r in roles],
+                )
+                raise AuthorizationError(
+                    message=f"User role '{authenticated_user.role.value}' not authorized. "
+                    f"Required roles: {', '.join(r.value for r in roles)}"
+                )
 
-        return TokenResponse(
-            access_token=access_token,
-            refresh_token=new_refresh_token,
-        )
+            return authenticated_user
 
-    async def _get_user_by_identifier(self, identifier: str) -> User:
-        """Get user by username or email.
+        return dependency
+
+    def register_routes(self, app: FastAPI) -> None:
+        """Register provider's authentication routes.
+
+        Mounts the provider's router (login, logout, etc.) under
+        the configured prefix.
 
         Args:
-            identifier: Username or email address.
-
-        Returns:
-            User: Found user.
-
-        Raises:
-            InvalidCredentialsError: If user not found.
+            app: FastAPI application instance
         """
-        user = await self.user_repository.get_by_name(identifier)
-        if not user:
-            user = await self.user_repository.get_by_mail(identifier)
-
-        if not user:
-            logger.warning(
-                "Login attempt with invalid identifier", identifier=identifier
+        for provider in self._providers:
+            router = provider.get_router()
+            app.include_router(router, prefix="auth", tags=["auth"])
+            logger.debug(
+                "Provider router registered",
+                provider=provider.name,
             )
-            raise InvalidCredentialsError("Invalid username/email or password")
-
-        return user
-
-    def _verify_password(self, user: User, password: str) -> None:
-        """Verify user password.
-
-        Args:
-            user: User to verify password for.
-            password: Plain text password.
-
-        Raises:
-            InvalidCredentialsError: If password is incorrect.
-        """
-        if not self.password_service.verify_password(password, user.hashed_password):
-            logger.warning(
-                "Login attempt with invalid password",
-                user_id=user.id,
-                username=user.username,
-            )
-            raise InvalidCredentialsError("Invalid username/email or password")
-
-    def _check_active(self, user: User) -> None:
-        """Check if user account is active.
-
-        Args:
-            user: User to check.
-
-        Raises:
-            InactiveUserError: If account is inactive.
-        """
-        if not user.is_active:
-            logger.warning(
-                "Login attempt for inactive account",
-                user_id=user.id,
-                username=user.username,
-            )
-            raise InactiveUserError(user_id=user.id)

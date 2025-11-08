@@ -5,17 +5,17 @@ Follows FastAPI best practices with proper validation, documentation, and error 
 """
 
 import structlog
-from fastapi import status
+from fastapi import Depends, status
 from fastapi.routing import APIRouter
 
-from app.core.auth.dependencies import RequiresUserDependency
 from app.core.exceptions.schemas import (
     ErrorResponse,
     InternalServerErrorResponse,
     ValidationErrorResponse,
 )
 from app.core.pagination import Page, PaginationDependency
-from app.dependencies import UserServiceDependency
+from app.dependencies import UserServiceDependency, auth_service
+from app.domains.users.models import User
 
 from .schemas import UserCreate, UserResponse, UserUpdate
 
@@ -218,7 +218,7 @@ async def delete_user(
     },
 )
 async def get_user_profile(
-    user: RequiresUserDependency,
+    user: User = Depends(auth_service.require_user),
 ) -> UserResponse:
     """Retrieve current authenticated user's information.
 
@@ -268,8 +268,8 @@ async def get_user_profile(
 )
 async def update_user_profile(
     user_update: UserUpdate,
-    user: RequiresUserDependency,
     user_service: UserServiceDependency,
+    user: User = Depends(auth_service.require_user),
 ) -> UserResponse:
     """Update current user's information.
 
