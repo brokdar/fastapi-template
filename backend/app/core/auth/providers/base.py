@@ -4,7 +4,7 @@ from fastapi import APIRouter, Request
 from fastapi.security.base import SecurityBase
 
 from app.domains.users.models import User
-from app.domains.users.repositories import UserRepository
+from app.domains.users.services import UserService
 
 
 class AuthProvider(Protocol):
@@ -44,7 +44,7 @@ class AuthProvider(Protocol):
         ...
 
     async def authenticate(
-        self, request: Request, user_repository: UserRepository
+        self, request: Request, user_service: UserService
     ) -> User | None:
         """Extract and validate credentials from request.
 
@@ -53,7 +53,7 @@ class AuthProvider(Protocol):
         2. Validate credentials using the injected user_repository
         3. Return User if valid, None if missing/invalid
 
-        The user_repository is injected per-request by the AuthService, ensuring
+        The user_service is injected per-request by the AuthService, ensuring
         fresh database sessions and proper request scoping.
 
         Should NOT raise exceptions for invalid credentials—return None instead.
@@ -61,7 +61,7 @@ class AuthProvider(Protocol):
 
         Args:
             request: FastAPI request object
-            user_repository: Injected repository for user data access
+            user_service: Injected service for user data access
 
         Returns:
             User if authenticated, None otherwise

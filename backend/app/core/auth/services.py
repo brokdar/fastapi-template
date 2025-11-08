@@ -9,11 +9,11 @@ from app.core.auth.exceptions import InvalidTokenError
 from app.core.auth.providers.base import AuthProvider
 from app.core.exceptions import AuthorizationError
 from app.domains.users.models import User, UserRole
-from app.domains.users.repositories import UserRepository
+from app.domains.users.services import UserService
 
 logger = structlog.get_logger("auth")
 
-type UserRepositoryDependency = Callable[..., UserRepository]
+type UserServiceDependency = Callable[..., UserService]
 
 
 class AuthService:
@@ -31,17 +31,36 @@ class AuthService:
 
     def __init__(
         self,
-        get_user_repository: UserRepositoryDependency,
+        get_user_service: UserServiceDependency,
         providers: Sequence[AuthProvider],
     ) -> None:
         """Initialize AuthService with dependency callable and providers.
 
         Args:
-            get_user_repository: Callable that returns UserRepository (dependency).
+            get_user_service: Callable that returns UserService (dependency).
             providers: List of authentication providers in order of priority.
         """
-        self.get_user_repository = get_user_repository
+        self.get_user_service = get_user_service
         self._providers = providers
+
+    async def _authenticate(self, request: Request, user_service: UserService) -> User:
+        for provider in self._providers:
+            if provider.can_authenticate(request):
+                logger.debug("Attempting authentication", provider=provider.name)
+                if user := await provider.authenticate(request, user_service):
+                    logger.info(
+                        "User authenticated successfully",
+                        provider=provider.name,
+                        user_id=user.id,
+                        username=user.username,
+                    )
+                    return user
+
+        logger.warning(
+            "Authentication failed for all providers",
+            providers_tried=[p.name for p in self._providers],
+        )
+        raise InvalidTokenError("Authentication failed")
 
     @property
     def require_user(self) -> Callable[..., Awaitable[User]]:
@@ -66,35 +85,9 @@ class AuthService:
 
         async def dependency(
             request: Request,
-            user_repository: UserRepository = Depends(self.get_user_repository),
+            user_service: UserService = Depends(self.get_user_service),
         ) -> User:
-            for provider in self._providers:
-                if not provider.can_authenticate(request):
-                    logger.debug(
-                        "Provider cannot authenticate request",
-                        provider=provider.name,
-                    )
-                    continue
-
-                logger.debug(
-                    "Attempting authentication",
-                    provider=provider.name,
-                )
-
-                if user := await provider.authenticate(request, user_repository):
-                    logger.info(
-                        "User authenticated successfully",
-                        provider=provider.name,
-                        user_id=user.id,
-                        username=user.username,
-                    )
-                    return user
-
-            logger.warning(
-                "Authentication failed for all providers",
-                providers_tried=[p.name for p in self._providers],
-            )
-            raise InvalidTokenError("Authentication failed")
+            return await self._authenticate(request, user_service)
 
         return dependency
 
@@ -125,54 +118,22 @@ class AuthService:
 
         async def dependency(
             request: Request,
-            user_repository: UserRepository = Depends(self.get_user_repository),
+            user_service: UserService = Depends(self.get_user_service),
         ) -> User:
-            # Authenticate user (same logic as require_user)
-            authenticated_user: User | None = None
-            for provider in self._providers:
-                if not provider.can_authenticate(request):
-                    logger.debug(
-                        "Provider cannot authenticate request",
-                        provider=provider.name,
-                    )
-                    continue
-
-                logger.debug(
-                    "Attempting authentication",
-                    provider=provider.name,
-                )
-
-                if user := await provider.authenticate(request, user_repository):
-                    logger.info(
-                        "User authenticated successfully",
-                        provider=provider.name,
-                        user_id=user.id,
-                        username=user.username,
-                    )
-                    authenticated_user = user
-                    break
-
-            if not authenticated_user:
-                logger.warning(
-                    "Authentication failed for all providers",
-                    providers_tried=[p.name for p in self._providers],
-                )
-                raise InvalidTokenError("Authentication failed")
-
-            # Check role authorization
-            if authenticated_user.role not in roles:
+            user = await self._authenticate(request, user_service)
+            if user.role not in roles:
                 logger.warning(
                     "User lacks required role",
-                    user_id=authenticated_user.id,
-                    user_role=authenticated_user.role,
+                    user_id=user.id,
+                    user_role=user.role,
                     required_roles=[r.value for r in roles],
                 )
                 raise AuthorizationError(
-                    message=f"User role '{authenticated_user.role.value}' not authorized. "
+                    message=f"User role '{user.role.value}' not authorized. "
                     f"Required roles: {', '.join(r.value for r in roles)}"
                 )
 
-            return authenticated_user
+            return user
 
         return dependency
 
