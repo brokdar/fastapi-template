@@ -187,7 +187,7 @@ class AuthService:
         """
         for provider in self._providers:
             router = provider.get_router()
-            app.include_router(router, prefix="auth", tags=["auth"])
+            app.include_router(router, prefix="/auth", tags=["auth"])
             logger.debug(
                 "Provider router registered",
                 provider=provider.name,

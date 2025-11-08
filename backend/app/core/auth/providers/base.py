@@ -1,12 +1,10 @@
-from typing import TYPE_CHECKING, Protocol
+from typing import Protocol
 
 from fastapi import APIRouter, Request
 from fastapi.security.base import SecurityBase
 
 from app.domains.users.models import User
-
-if TYPE_CHECKING:
-    from app.domains.users.repositories import UserRepository
+from app.domains.users.repositories import UserRepository
 
 
 class AuthProvider(Protocol):
