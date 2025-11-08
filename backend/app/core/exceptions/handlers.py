@@ -356,7 +356,7 @@ async def _process_validation_errors(
 
     return await _get_exception_service().create_error_response(
         request=request,
-        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
         error_detail=error_detail,
         request_id=request_id,
         extra_data={"validation_errors": validation_errors},
