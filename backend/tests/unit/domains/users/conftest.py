@@ -15,7 +15,7 @@ from app.domains.users.services import UserService
 @pytest.fixture
 def mock_repository() -> AsyncMock:
     """Provide a mocked UserRepository for service testing."""
-    mock = AsyncMock(spec=UserRepository)
+    mock = AsyncMock(spec=UserRepository[int])
     mock._model_class = User
     return mock
 
@@ -32,7 +32,7 @@ def mock_password_service() -> MagicMock:
 @pytest.fixture
 def user_service(
     mock_repository: AsyncMock, mock_password_service: MagicMock
-) -> UserService:
+) -> UserService[int]:
     """Provide a UserService instance with mocked dependencies."""
     return UserService(mock_repository, mock_password_service)
 

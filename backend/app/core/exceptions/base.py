@@ -7,7 +7,6 @@ types of errors.
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from enum import StrEnum
 from typing import Any
 
@@ -94,116 +93,181 @@ class ApplicationError(Exception):
         )
 
 
-# Exception configuration factory pattern to eliminate code duplication
-_EXCEPTION_CONFIGS = {
-    "AuthenticationError": (
-        ErrorCode.AUTHENTICATION_ERROR,
-        401,
-        "Authentication failed",
-    ),
-    "AuthorizationError": (
-        ErrorCode.AUTHORIZATION_ERROR,
-        403,
-        "Insufficient permissions",
-    ),
-    "ValidationError": (ErrorCode.VALIDATION_ERROR, 422, "Validation failed"),
-    "NotFoundError": (ErrorCode.RESOURCE_NOT_FOUND, 404, "Resource not found"),
-    "ConflictError": (ErrorCode.RESOURCE_CONFLICT, 409, "Resource conflict"),
-    "BusinessLogicError": (
-        ErrorCode.BUSINESS_RULE_VIOLATION,
-        400,
-        "Business rule violation",
-    ),
-    "NotImplementedError": (ErrorCode.NOT_IMPLEMENTED, 501, "Feature not implemented"),
-    "ExternalServiceError": (
-        ErrorCode.EXTERNAL_SERVICE_ERROR,
-        502,
-        "External service error",
-    ),
-    "DatabaseError": (ErrorCode.DATABASE_ERROR, 500, "Database error"),
-    "ConfigurationError": (ErrorCode.CONFIGURATION_ERROR, 500, "Configuration error"),
-}
-
-
-def _create_exception_init(
-    default_error_code: ErrorCode, status_code: int, default_message: str
-) -> Callable[..., None]:
-    """Factory function to create exception __init__ methods with consistent behavior."""
-
-    def init_method(
-        self: ApplicationError,
-        message: str = default_message,
-        error_code: ErrorCode = default_error_code,
-        details: dict[str, Any] | None = None,
-        headers: dict[str, str] | None = None,
-    ) -> None:
-        ApplicationError.__init__(
-            self,
-            message=message,
-            error_code=error_code,
-            status_code=status_code,
-            details=details,
-            headers=headers,
-        )
-
-    return init_method
-
-
 class AuthenticationError(ApplicationError):
     """Raised when authentication fails."""
 
-    __init__ = _create_exception_init(*_EXCEPTION_CONFIGS["AuthenticationError"])
+    def __init__(
+        self,
+        message: str,
+        details: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> None:
+        super().__init__(
+            message=message,
+            error_code=ErrorCode.AUTHENTICATION_ERROR,
+            status_code=401,
+            details=details,
+            headers=headers,
+        )
 
 
 class AuthorizationError(ApplicationError):
     """Raised when user lacks sufficient permissions."""
 
-    __init__ = _create_exception_init(*_EXCEPTION_CONFIGS["AuthorizationError"])
+    def __init__(
+        self,
+        message: str,
+        details: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> None:
+        super().__init__(
+            message=message,
+            error_code=ErrorCode.AUTHORIZATION_ERROR,
+            status_code=403,
+            details=details,
+            headers=headers,
+        )
 
 
 class ValidationError(ApplicationError):
     """Raised when input validation fails."""
 
-    __init__ = _create_exception_init(*_EXCEPTION_CONFIGS["ValidationError"])
+    def __init__(
+        self,
+        message: str,
+        details: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> None:
+        super().__init__(
+            message=message,
+            error_code=ErrorCode.VALIDATION_ERROR,
+            status_code=422,
+            details=details,
+            headers=headers,
+        )
 
 
 class NotFoundError(ApplicationError):
     """Raised when a requested resource is not found."""
 
-    __init__ = _create_exception_init(*_EXCEPTION_CONFIGS["NotFoundError"])
+    def __init__(
+        self,
+        message: str,
+        details: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> None:
+        super().__init__(
+            message=message,
+            error_code=ErrorCode.RESOURCE_NOT_FOUND,
+            status_code=404,
+            details=details,
+            headers=headers,
+        )
 
 
 class ConflictError(ApplicationError):
     """Raised when a resource conflict occurs."""
 
-    __init__ = _create_exception_init(*_EXCEPTION_CONFIGS["ConflictError"])
+    def __init__(
+        self,
+        message: str,
+        details: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> None:
+        super().__init__(
+            message=message,
+            error_code=ErrorCode.RESOURCE_CONFLICT,
+            status_code=409,
+            details=details,
+            headers=headers,
+        )
 
 
 class BusinessLogicError(ApplicationError):
     """Raised when business rules are violated."""
 
-    __init__ = _create_exception_init(*_EXCEPTION_CONFIGS["BusinessLogicError"])
+    def __init__(
+        self,
+        message: str,
+        details: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> None:
+        super().__init__(
+            message=message,
+            error_code=ErrorCode.BUSINESS_RULE_VIOLATION,
+            status_code=400,
+            details=details,
+            headers=headers,
+        )
 
 
 class NotImplementedError(ApplicationError):
     """Raised when a requested feature or operation is not implemented."""
 
-    __init__ = _create_exception_init(*_EXCEPTION_CONFIGS["NotImplementedError"])
+    def __init__(
+        self,
+        message: str,
+        details: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> None:
+        super().__init__(
+            message=message,
+            error_code=ErrorCode.NOT_IMPLEMENTED,
+            status_code=501,
+            details=details,
+            headers=headers,
+        )
 
 
 class ExternalServiceError(ApplicationError):
     """Raised when external service calls fail."""
 
-    __init__ = _create_exception_init(*_EXCEPTION_CONFIGS["ExternalServiceError"])
+    def __init__(
+        self,
+        message: str,
+        details: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> None:
+        super().__init__(
+            message=message,
+            error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
+            status_code=502,
+            details=details,
+            headers=headers,
+        )
 
 
 class DatabaseError(ApplicationError):
     """Raised when database operations fail."""
 
-    __init__ = _create_exception_init(*_EXCEPTION_CONFIGS["DatabaseError"])
+    def __init__(
+        self,
+        message: str,
+        details: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> None:
+        super().__init__(
+            message=message,
+            error_code=ErrorCode.DATABASE_ERROR,
+            status_code=500,
+            details=details,
+            headers=headers,
+        )
 
 
 class ConfigurationError(ApplicationError):
     """Raised when configuration is invalid or missing."""
 
-    __init__ = _create_exception_init(*_EXCEPTION_CONFIGS["ConfigurationError"])
+    def __init__(
+        self,
+        message: str,
+        details: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> None:
+        super().__init__(
+            message=message,
+            error_code=ErrorCode.CONFIGURATION_ERROR,
+            status_code=500,
+            details=details,
+            headers=headers,
+        )

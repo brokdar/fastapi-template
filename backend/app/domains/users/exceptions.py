@@ -4,6 +4,8 @@ This module defines exceptions specific to user management operations.
 All exceptions extend ApplicationError and provide domain-specific error handling.
 """
 
+from uuid import UUID
+
 from app.core.exceptions.base import ApplicationError, ErrorCode
 
 
@@ -13,7 +15,7 @@ class UserNotFoundError(ApplicationError):
     def __init__(
         self,
         message: str = "User not found",
-        user_id: int | str | None = None,
+        user_id: int | UUID | str | None = None,
     ) -> None:
         """Initialize UserNotFoundError.
 

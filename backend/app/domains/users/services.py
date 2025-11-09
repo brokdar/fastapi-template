@@ -4,6 +4,8 @@ This module contains the business logic for user management operations.
 All business rules, validation, and orchestration logic is handled here.
 """
 
+from uuid import UUID
+
 import structlog
 
 from app.core.security.password import PasswordHasher
@@ -14,16 +16,23 @@ from .repositories import UserRepository
 from .schemas import UserCreate, UserUpdate
 
 
-class UserPasswordService:
-    """Service class for user password operations."""
+class UserService[ID: (int, UUID)]:
+    """Service class for user business logic operations."""
 
-    def __init__(self, password_service: PasswordHasher) -> None:
-        """Initialize UserPasswordService with password service dependency.
+    def __init__(
+        self,
+        user_repository: UserRepository[ID],
+        password_service: PasswordHasher,
+    ) -> None:
+        """Initialize UserService with repository dependency.
 
         Args:
+            user_repository: Repository for user data access operations
             password_service: Service for password hashing and verification
         """
+        self._repository: UserRepository[ID] = user_repository
         self._password_service = password_service
+        self.logger = structlog.get_logger("users")
 
     async def verify_password(self, user: User, password: str) -> bool:
         """Verify user password against stored hash.
@@ -37,25 +46,8 @@ class UserPasswordService:
         """
         return self._password_service.verify_password(password, user.hashed_password)
 
-
-class UserService:
-    """Service class for user business logic operations."""
-
-    def __init__(
-        self, user_repository: UserRepository, password_service: PasswordHasher
-    ) -> None:
-        """Initialize UserService with repository dependency.
-
-        Args:
-            user_repository: Repository for user data access operations
-            password_service: Service for password hashing and verification
-        """
-        self._repository = user_repository
-        self._password_service = password_service
-        self.logger = structlog.get_logger("users")
-
     async def _validate_email_unique(
-        self, email: str, exclude_user_id: int | None = None
+        self, email: str, exclude_user_id: ID | None = None
     ) -> None:
         """Validate that email is unique in the system.
 
@@ -75,7 +67,7 @@ class UserService:
             )
 
     async def _validate_username_unique(
-        self, username: str, exclude_user_id: int | None = None
+        self, username: str, exclude_user_id: ID | None = None
     ) -> None:
         """Validate that username is unique in the system.
 
@@ -94,7 +86,7 @@ class UserService:
                 value=username,
             )
 
-    async def get_by_id(self, user_id: int) -> User:
+    async def get_by_id(self, user_id: ID) -> User:
         """Retrieve a user by ID.
 
         Args:
@@ -228,7 +220,7 @@ class UserService:
 
         return created_user
 
-    async def update_user(self, user_id: int, user_update: UserUpdate) -> User:
+    async def update_user(self, user_id: ID, user_update: UserUpdate) -> User:
         """Update an existing user.
 
         Args:
@@ -274,7 +266,7 @@ class UserService:
 
         return updated_user
 
-    async def delete_user(self, user_id: int) -> None:
+    async def delete_user(self, user_id: ID) -> None:
         """Delete a user.
 
         Args:

@@ -17,7 +17,7 @@ class TestUserServiceGetById:
     @pytest.mark.asyncio
     async def test_returns_user_when_exists(
         self,
-        user_service: UserService,
+        user_service: UserService[int],
         mock_repository: AsyncMock,
         regular_user: User,
     ) -> None:
@@ -32,7 +32,7 @@ class TestUserServiceGetById:
     @pytest.mark.asyncio
     async def test_raises_not_found_error_when_user_not_exists(
         self,
-        user_service: UserService,
+        user_service: UserService[int],
         mock_repository: AsyncMock,
     ) -> None:
         """Test UserNotFoundError when user doesn't exist."""
@@ -50,7 +50,7 @@ class TestUserServiceGetByName:
     @pytest.mark.asyncio
     async def test_returns_user_when_exists(
         self,
-        user_service: UserService,
+        user_service: UserService[int],
         mock_repository: AsyncMock,
         regular_user: User,
     ) -> None:
@@ -65,7 +65,7 @@ class TestUserServiceGetByName:
     @pytest.mark.asyncio
     async def test_raises_not_found_error_when_user_not_exists(
         self,
-        user_service: UserService,
+        user_service: UserService[int],
         mock_repository: AsyncMock,
     ) -> None:
         """Test UserNotFoundError when username doesn't exist."""
@@ -85,7 +85,7 @@ class TestUserServiceGetAll:
     @pytest.mark.asyncio
     async def test_returns_paginated_users(
         self,
-        user_service: UserService,
+        user_service: UserService[int],
         mock_repository: AsyncMock,
         regular_user: User,
     ) -> None:
@@ -104,7 +104,7 @@ class TestUserServiceGetAll:
     @pytest.mark.asyncio
     async def test_uses_default_pagination_parameters(
         self,
-        user_service: UserService,
+        user_service: UserService[int],
         mock_repository: AsyncMock,
     ) -> None:
         """Test default pagination parameters when no parameters provided."""
@@ -124,7 +124,7 @@ class TestUserServiceCount:
     @pytest.mark.asyncio
     async def test_returns_total_user_count(
         self,
-        user_service: UserService,
+        user_service: UserService[int],
         mock_repository: AsyncMock,
     ) -> None:
         """Test total user count retrieval."""
@@ -143,7 +143,7 @@ class TestUserServiceCreateUser:
     @pytest.mark.asyncio
     async def test_creates_user_when_no_conflicts(
         self,
-        user_service: UserService,
+        user_service: UserService[int],
         mock_repository: AsyncMock,
         user_create_data: UserCreate,
         regular_user: User,
@@ -163,7 +163,7 @@ class TestUserServiceCreateUser:
     @pytest.mark.asyncio
     async def test_raises_already_exists_error_when_email_conflict(
         self,
-        user_service: UserService,
+        user_service: UserService[int],
         mock_repository: AsyncMock,
         user_create_data: UserCreate,
         regular_user: User,
@@ -182,7 +182,7 @@ class TestUserServiceCreateUser:
     @pytest.mark.asyncio
     async def test_raises_already_exists_error_when_username_conflict(
         self,
-        user_service: UserService,
+        user_service: UserService[int],
         mock_repository: AsyncMock,
         user_create_data: UserCreate,
         regular_user: User,
@@ -207,7 +207,7 @@ class TestUserServiceUpdateUser:
     @pytest.mark.asyncio
     async def test_updates_user_when_exists_and_no_conflicts(
         self,
-        user_service: UserService,
+        user_service: UserService[int],
         mock_repository: AsyncMock,
         regular_user: User,
     ) -> None:
@@ -231,7 +231,7 @@ class TestUserServiceUpdateUser:
     @pytest.mark.asyncio
     async def test_raises_not_found_error_when_user_not_exists(
         self,
-        user_service: UserService,
+        user_service: UserService[int],
         mock_repository: AsyncMock,
     ) -> None:
         """Test UserNotFoundError when updating non-existent user."""
@@ -247,7 +247,7 @@ class TestUserServiceUpdateUser:
     @pytest.mark.asyncio
     async def test_raises_already_exists_error_on_email_conflict(
         self,
-        user_service: UserService,
+        user_service: UserService[int],
         mock_repository: AsyncMock,
         regular_user: User,
     ) -> None:
@@ -272,7 +272,7 @@ class TestUserServiceUpdateUser:
     @pytest.mark.asyncio
     async def test_allows_updating_to_same_email(
         self,
-        user_service: UserService,
+        user_service: UserService[int],
         mock_repository: AsyncMock,
         regular_user: User,
     ) -> None:
@@ -303,7 +303,7 @@ class TestUserServiceUpdateUser:
     @pytest.mark.asyncio
     async def test_update_validation_calls_depend_on_fields(
         self,
-        user_service: UserService,
+        user_service: UserService[int],
         mock_repository: AsyncMock,
         regular_user: User,
         update_data: dict[str, Any],
@@ -332,7 +332,7 @@ class TestUserServiceDeleteUser:
     @pytest.mark.asyncio
     async def test_deletes_user_when_exists(
         self,
-        user_service: UserService,
+        user_service: UserService[int],
         mock_repository: AsyncMock,
         regular_user: User,
     ) -> None:
@@ -348,7 +348,7 @@ class TestUserServiceDeleteUser:
     @pytest.mark.asyncio
     async def test_raises_not_found_error_when_user_not_exists(
         self,
-        user_service: UserService,
+        user_service: UserService[int],
         mock_repository: AsyncMock,
     ) -> None:
         """Test UserNotFoundError when deleting non-existent user."""

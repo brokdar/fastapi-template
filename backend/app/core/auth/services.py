@@ -1,6 +1,7 @@
 """Authentication orchestration service managing multiple providers."""
 
 from collections.abc import Awaitable, Callable, Sequence
+from uuid import UUID
 
 import structlog
 from fastapi import Depends, FastAPI, Request
@@ -13,10 +14,10 @@ from app.domains.users.services import UserService
 
 logger = structlog.get_logger("auth")
 
-type UserServiceDependency = Callable[..., UserService]
+type UserServiceDependency[ID: (int, UUID)] = Callable[..., UserService[ID]]
 
 
-class AuthService:
+class AuthService[ID: (int, UUID)]:
     """Manages authentication for a FastAPI application.
 
     Coordinates multiple authentication providers and provides FastAPI
@@ -27,12 +28,14 @@ class AuthService:
 
     Uses the dependency callable pattern: stores a callable for user repository
     which FastAPI resolves per-request, ensuring fresh database sessions.
+
+    Generic over user ID type (int or UUID) to support different database schemas.
     """
 
     def __init__(
         self,
-        get_user_service: UserServiceDependency,
-        providers: Sequence[AuthProvider],
+        get_user_service: UserServiceDependency[ID],
+        providers: Sequence[AuthProvider[ID]],
     ) -> None:
         """Initialize AuthService with dependency callable and providers.
 
@@ -40,14 +43,17 @@ class AuthService:
             get_user_service: Callable that returns UserService (dependency).
             providers: List of authentication providers in order of priority.
         """
-        self.get_user_service = get_user_service
-        self._providers = providers
+        self.get_user_service: UserServiceDependency[ID] = get_user_service
+        self._providers: Sequence[AuthProvider[ID]] = providers
 
-    async def _authenticate(self, request: Request, user_service: UserService) -> User:
+    async def _authenticate(
+        self, request: Request, user_service: UserService[ID]
+    ) -> User:
         for provider in self._providers:
             if provider.can_authenticate(request):
                 logger.debug("Attempting authentication", provider=provider.name)
-                if user := await provider.authenticate(request, user_service):
+                user: User | None = await provider.authenticate(request, user_service)
+                if user:
                     logger.info(
                         "User authenticated successfully",
                         provider=provider.name,
@@ -85,7 +91,7 @@ class AuthService:
 
         async def dependency(
             request: Request,
-            user_service: UserService = Depends(self.get_user_service),
+            user_service: UserService[ID] = Depends(self.get_user_service),
         ) -> User:
             return await self._authenticate(request, user_service)
 
@@ -107,18 +113,11 @@ class AuthService:
         Raises:
             InvalidTokenError: If authentication fails.
             AuthorizationError: If user doesn't have required role.
-
-        Example:
-            @app.get("/admin")
-            async def admin_only(
-                user: User = Depends(auth_service.require_roles(UserRole.ADMIN))
-            ):
-                return {"admin": user.username}
         """
 
         async def dependency(
             request: Request,
-            user_service: UserService = Depends(self.get_user_service),
+            user_service: UserService[ID] = Depends(self.get_user_service),
         ) -> User:
             user = await self._authenticate(request, user_service)
             if user.role not in roles:

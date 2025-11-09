@@ -14,43 +14,44 @@ password_service = default_password_service
 settings = get_settings()
 
 
-def get_user_repository(session: SessionDependency) -> UserRepository:
+def get_user_repository(session: SessionDependency) -> UserRepository[int]:
     """Create UserRepository instance for dependency injection.
 
     Args:
         session: Database session dependency.
 
     Returns:
-        UserRepository: Repository instance for user operations.
+        UserRepository[int]: Repository instance for user operations with integer IDs.
     """
     return UserRepository(session)
 
 
 def get_user_service(
-    repository: Annotated[UserRepository, Depends(get_user_repository)],
-) -> UserService:
+    repository: Annotated[UserRepository[int], Depends(get_user_repository)],
+) -> UserService[int]:
     """Create UserService instance for dependency injection.
 
     Args:
         repository: User repository instance.
 
     Returns:
-        UserService: Service instance for user operations.
+        UserService[int]: Service instance for user operations with integer IDs.
     """
     return UserService(repository, password_service)
 
 
-jwt_provider = JWTAuthProvider(
+jwt_provider: JWTAuthProvider[int] = JWTAuthProvider(
     secret_key=settings.AUTH.JWT_SECRET_KEY.get_secret_value(),
+    id_type=int,
     algorithm=settings.AUTH.JWT_ALGORITHM,
     access_token_expire_minutes=settings.AUTH.JWT_ACCESS_TOKEN_EXPIRE_MINUTES,
     refresh_token_expire_days=settings.AUTH.JWT_REFRESH_TOKEN_EXPIRE_DAYS,
 )
 
-auth_service = AuthService(
+auth_service: AuthService[int] = AuthService(
     get_user_service=get_user_service,
     providers=[jwt_provider],
 )
 
 
-UserServiceDependency = Annotated[UserService, Depends(get_user_service)]
+UserServiceDependency = Annotated[UserService[int], Depends(get_user_service)]

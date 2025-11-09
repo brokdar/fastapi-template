@@ -7,17 +7,13 @@ from app.core.auth.exceptions import (
     InvalidTokenError,
     TokenExpiredError,
 )
+from app.core.auth.protocols import AuthenticationUserService
 from app.core.auth.providers.base import AuthProvider
 from app.core.auth.providers.jwt import (
     JWTAuthProvider,
-    JWTAuthService,
-    LoginRequest,
-    RefreshRequest,
+    RefreshTokenRequest,
     TokenPayload,
     TokenResponse,
-    create_access_token,
-    create_refresh_token,
-    verify_token,
 )
 from app.core.auth.services import AuthService
 
@@ -25,15 +21,11 @@ __all__ = [
     "AuthProvider",
     "AuthService",
     "AuthSettings",
+    "AuthenticationUserService",
     "JWTAuthProvider",
-    "JWTAuthService",
-    "LoginRequest",
-    "RefreshRequest",
+    "RefreshTokenRequest",
     "TokenResponse",
     "TokenPayload",
-    "create_access_token",
-    "create_refresh_token",
-    "verify_token",
     "InvalidTokenError",
     "TokenExpiredError",
     "InactiveUserError",

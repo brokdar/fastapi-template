@@ -1,5 +1,7 @@
 """Authentication-specific exceptions."""
 
+from uuid import UUID
+
 from app.core.exceptions import AuthenticationError, AuthorizationError
 
 
@@ -46,7 +48,9 @@ class InactiveUserError(AuthorizationError):
     """
 
     def __init__(
-        self, message: str = "User account is inactive", user_id: int | None = None
+        self,
+        message: str = "User account is inactive",
+        user_id: int | UUID | None = None,
     ) -> None:
         """Initialize InactiveUserError.
 

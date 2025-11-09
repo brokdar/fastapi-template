@@ -1,95 +1,66 @@
 from typing import Protocol
+from uuid import UUID
 
 from fastapi import APIRouter, Request
 from fastapi.security.base import SecurityBase
 
+from app.core.auth.protocols import AuthenticationUserService
 from app.domains.users.models import User
-from app.domains.users.services import UserService
 
 
-class AuthProvider(Protocol):
-    """Protocol for authentication providers.
+class AuthProvider[ID: (int, UUID)](Protocol):
+    """Protocol defining the interface for authentication providers.
 
-    Providers own their complete authentication workflow including:
-    - Login/logout endpoints (via get_router())
-    - Request authentication logic
-    - Session/token management
-    - Response formatting (JSON tokens, cookies, etc.)
+    Authentication providers implement different authentication mechanisms
+    (e.g., JWT, OAuth, API Key) and provide a consistent interface for
+    authenticating requests and managing authentication-specific routes.
 
-    Providers are tried in the order they are registered in AuthService.
-    The first provider where can_authenticate() returns True will be used.
+    Attributes:
+        name: Unique identifier for the authentication provider.
     """
 
     name: str
 
     def can_authenticate(self, request: Request) -> bool:
-        """Check if this provider can authenticate the given request.
-
-        This method performs a fast check to determine if the request contains
-        credentials that this provider can handle (e.g., Bearer token, session
-        cookie, API key header). This allows efficient provider selection without
-        attempting full authentication on every provider.
-
-        Examples:
-        - JWT: Check for "Authorization: Bearer" header
-        - Session: Check for session cookie
-        - OAuth: Check if path matches callback URL
+        """Determines if this provider can authenticate the given request.
 
         Args:
-            request: FastAPI request object
+            request: The incoming FastAPI request to check.
 
         Returns:
-            True if this provider can attempt authentication, False otherwise
+            True if this provider can handle authentication for the request,
+            False otherwise.
         """
         ...
 
     async def authenticate(
-        self, request: Request, user_service: UserService
+        self, request: Request, user_service: AuthenticationUserService[ID]
     ) -> User | None:
-        """Extract and validate credentials from request.
-
-        This method should:
-        1. Check if request contains credentials (cookie, bearer token, etc.)
-        2. Validate credentials using the injected user_repository
-        3. Return User if valid, None if missing/invalid
-
-        The user_service is injected per-request by the AuthService, ensuring
-        fresh database sessions and proper request scoping.
-
-        Should NOT raise exceptions for invalid credentials—return None instead.
-        Exceptions should only be raised for system errors.
+        """Authenticates the request and returns the authenticated user.
 
         Args:
-            request: FastAPI request object
-            user_service: Injected service for user data access
+            request: The incoming FastAPI request containing authentication credentials.
+            user_service: Service for user data access and operations.
 
         Returns:
-            User if authenticated, None otherwise
+            The authenticated User if authentication succeeds, None otherwise.
         """
         ...
 
     def get_security_scheme(self) -> SecurityBase:
-        """Return FastAPI security scheme for OpenAPI documentation.
-
-        Examples:
-        - HTTPBearer() for JWT
-        - APIKeyCookie(name="session_id") for sessions
+        """Returns the FastAPI security scheme for OpenAPI documentation.
 
         Returns:
-            SecurityBase instance for OpenAPI spec
+            The security scheme that defines how this provider's authentication
+            mechanism appears in the OpenAPI/Swagger documentation.
         """
         ...
 
     def get_router(self) -> APIRouter:
-        """Return router with login/logout endpoints.
-
-        The router should define provider-specific endpoints:
-        - POST /login - Returns provider-specific response (JSON/cookies)
-        - POST /logout - Clears authentication state
-        - (Optional) POST /refresh - For token refresh
-        - (Optional) GET /callback - For OAuth flows
+        """Returns provider-specific API routes.
 
         Returns:
-            APIRouter with authentication endpoints
+            APIRouter containing authentication-related endpoints specific to
+            this provider (e.g., login, logout, token refresh).
         """
         ...
