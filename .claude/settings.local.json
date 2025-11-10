@@ -1,7 +1,11 @@
 {
   "permissions": {
     "allow": [
-      "Bash(docker compose:*)"
+      "Bash(docker compose:*)",
+      "Bash(docker logs:*)",
+      "Bash(docker ps:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(python3:*)"
     ],
     "deny": [],
     "ask": []
