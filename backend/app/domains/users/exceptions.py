@@ -79,3 +79,33 @@ class InvalidCredentialsError(ApplicationError):
             error_code=ErrorCode.AUTHENTICATION_ERROR,
             status_code=401,
         )
+
+
+class InvalidUserIDError(ApplicationError):
+    """Raised when user ID parsing or validation fails."""
+
+    def __init__(
+        self,
+        message: str = "Invalid user ID format",
+        value: str | None = None,
+        expected_type: str | None = None,
+    ) -> None:
+        """Initialize InvalidUserIDError.
+
+        Args:
+            message: Error message describing the ID parsing failure
+            value: The invalid value that failed parsing
+            expected_type: The expected ID type (e.g., "int", "UUID")
+        """
+        details = {}
+        if value is not None:
+            details["value"] = value
+        if expected_type is not None:
+            details["expected_type"] = expected_type
+
+        super().__init__(
+            message=message,
+            error_code=ErrorCode.VALIDATION_ERROR,
+            status_code=400,
+            details=details if details else None,
+        )

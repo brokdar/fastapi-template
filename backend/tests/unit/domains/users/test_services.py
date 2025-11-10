@@ -2,13 +2,15 @@
 
 from typing import Any
 from unittest.mock import AsyncMock
+from uuid import UUID
 
 import pytest
 
 from app.domains.users.exceptions import UserAlreadyExistsError, UserNotFoundError
+from app.domains.users.mixins import IntIDMixin, UUIDIDMixin
 from app.domains.users.models import User
 from app.domains.users.schemas import UserCreate, UserUpdate
-from app.domains.users.services import UserService
+from app.domains.users.services import IntUserService, UserService
 
 
 class TestUserServiceGetById:
@@ -359,3 +361,62 @@ class TestUserServiceDeleteUser:
 
         mock_repository.get_by_id.assert_called_once_with(999)
         assert not mock_repository.delete.called
+
+
+class TestUserServiceParseId:
+    """Test suite for UserService.parse_id method and mixin composition."""
+
+    def test_raises_not_implemented_without_mixin(
+        self, mock_repository: AsyncMock, mock_password_service: AsyncMock
+    ) -> None:
+        """Test that pure UserService without mixin raises NotImplementedError."""
+        service = UserService(mock_repository, mock_password_service)
+
+        with pytest.raises(
+            NotImplementedError, match="must be composed with an ID mixin"
+        ):
+            service.parse_id("123")
+
+    def test_int_user_service_parses_integer_ids(
+        self, mock_repository: AsyncMock, mock_password_service: AsyncMock
+    ) -> None:
+        """Test IntUserService parses integer IDs via IntIDMixin."""
+        service = IntUserService(mock_repository, mock_password_service)
+
+        result = service.parse_id("123")
+
+        assert result == 123
+        assert isinstance(result, int)
+
+    def test_uuid_user_service_parses_uuid_ids(
+        self, mock_repository: AsyncMock, mock_password_service: AsyncMock
+    ) -> None:
+        """Test UUIDUserService parses UUID IDs via UUIDIDMixin."""
+
+        class UUIDUserService(UUIDIDMixin, UserService[UUID]):
+            pass
+
+        service = UUIDUserService(mock_repository, mock_password_service)
+        uuid_str = "123e4567-e89b-12d3-a456-426614174000"
+
+        result = service.parse_id(uuid_str)
+
+        assert isinstance(result, UUID)
+        assert str(result) == uuid_str
+
+    def test_mixin_method_resolution_order(
+        self, mock_repository: AsyncMock, mock_password_service: AsyncMock
+    ) -> None:
+        """Test that MRO resolves parse_id to mixin implementation."""
+
+        class TestService(IntIDMixin, UserService[int]):
+            pass
+
+        service = TestService(mock_repository, mock_password_service)
+        mro = TestService.__mro__
+
+        assert mro[0] == TestService
+        assert mro[1] == IntIDMixin
+        assert mro[2] == UserService
+        assert hasattr(service, "parse_id")
+        assert service.parse_id("456") == 456

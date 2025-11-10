@@ -48,7 +48,6 @@ class JWTAuthProvider[ID: (int, UUID)](AuthProvider[ID]):
     def __init__(
         self,
         secret_key: str,
-        id_type: type[ID],
         algorithm: str = "HS256",
         access_token_expire_minutes: int = 15,
         refresh_token_expire_days: int = 7,
@@ -57,7 +56,6 @@ class JWTAuthProvider[ID: (int, UUID)](AuthProvider[ID]):
 
         Args:
             secret_key: Secret key for signing tokens (minimum 32 characters).
-            id_type: Type of user ID (int or UUID) for token serialization.
             algorithm: JWT signing algorithm (must be HS256 for RFC compliance).
             access_token_expire_minutes: Access token expiration in minutes.
             refresh_token_expire_days: Refresh token expiration in days.
@@ -71,12 +69,11 @@ class JWTAuthProvider[ID: (int, UUID)](AuthProvider[ID]):
             raise ValueError(f"Unsupported algorithm: {algorithm}")
 
         self.secret_key = secret_key
-        self._id_type: type[ID] = id_type
         self.algorithm = algorithm
         self.access_token_expire_minutes = access_token_expire_minutes
         self.refresh_token_expire_days = refresh_token_expire_days
 
-    def create_access_token(self, user_id: ID) -> str:
+    def create_access_token(self, user_id: str) -> str:
         """Create RFC 7519-compliant access token.
 
         Generates a JWT with the following claims:
@@ -86,7 +83,7 @@ class JWTAuthProvider[ID: (int, UUID)](AuthProvider[ID]):
         - type: Token type ("access")
 
         Args:
-            user_id: User identifier to encode in token.
+            user_id: String representation of user identifier to encode in token.
 
         Returns:
             Encoded JWT access token string.
@@ -95,7 +92,7 @@ class JWTAuthProvider[ID: (int, UUID)](AuthProvider[ID]):
         expire = now + timedelta(minutes=self.access_token_expire_minutes)
 
         payload: dict[str, Any] = {
-            "sub": str(user_id),
+            "sub": user_id,
             "exp": int(expire.timestamp()),
             "iat": int(now.timestamp()),
             "type": "access",
@@ -109,7 +106,7 @@ class JWTAuthProvider[ID: (int, UUID)](AuthProvider[ID]):
         )
         return token
 
-    def create_refresh_token(self, user_id: ID) -> str:
+    def create_refresh_token(self, user_id: str) -> str:
         """Create RFC 7519-compliant refresh token.
 
         Generates a JWT with the following claims:
@@ -119,7 +116,7 @@ class JWTAuthProvider[ID: (int, UUID)](AuthProvider[ID]):
         - type: Token type ("refresh")
 
         Args:
-            user_id: User identifier to encode in token.
+            user_id: String representation of user identifier to encode in token.
 
         Returns:
             Encoded JWT refresh token string.
@@ -128,7 +125,7 @@ class JWTAuthProvider[ID: (int, UUID)](AuthProvider[ID]):
         expire = now + timedelta(days=self.refresh_token_expire_days)
 
         payload: dict[str, Any] = {
-            "sub": str(user_id),
+            "sub": user_id,
             "exp": int(expire.timestamp()),
             "iat": int(now.timestamp()),
             "type": "refresh",
@@ -142,11 +139,11 @@ class JWTAuthProvider[ID: (int, UUID)](AuthProvider[ID]):
         )
         return token
 
-    def create_token_response(self, user_id: ID) -> TokenResponse:
+    def create_token_response(self, user_id: str) -> TokenResponse:
         """Create complete token response with access and refresh tokens.
 
         Args:
-            user_id: User identifier for token generation.
+            user_id: String representation of user identifier for token generation.
 
         Returns:
             TokenResponse containing both access and refresh tokens.
@@ -161,8 +158,8 @@ class JWTAuthProvider[ID: (int, UUID)](AuthProvider[ID]):
             expires_in=self.access_token_expire_minutes * 60,
         )
 
-    def verify_token(self, token: str, expected_type: str) -> ID:
-        """Verify JWT token and extract user ID with RFC 7519 compliance.
+    def verify_token(self, token: str, expected_type: str) -> str:
+        """Verify JWT token and extract user ID string with RFC 7519 compliance.
 
         Performs comprehensive token validation:
         1. Verifies JWT structure (header.payload.signature)
@@ -171,14 +168,18 @@ class JWTAuthProvider[ID: (int, UUID)](AuthProvider[ID]):
         4. Validates Claims Set as UTF-8 JSON
         5. Checks expiration time (exp claim)
         6. Validates token type matches expected
-        7. Extracts and returns user ID from sub claim
+        7. Extracts and returns user ID string from sub claim
+
+        Note: Returns string representation of user ID. The calling code
+        (authenticate method) is responsible for parsing the string to the
+        appropriate typed ID using user_service.parse_id().
 
         Args:
             token: JWT token string to verify.
             expected_type: Expected token type ("access" or "refresh").
 
         Returns:
-            User ID extracted from sub claim.
+            User ID string extracted from sub claim.
 
         Raises:
             InvalidTokenError: Token is malformed, invalid signature, or wrong type.
@@ -208,13 +209,12 @@ class JWTAuthProvider[ID: (int, UUID)](AuthProvider[ID]):
                     f"Invalid token type: expected {expected_type}, got {token_payload.type}"
                 )
 
-            user_id = self._id_type(token_payload.sub)
             logger.debug(
                 "token_verified",
-                user_id=user_id,
+                user_id=token_payload.sub,
                 token_type=expected_type,
             )
-            return user_id
+            return token_payload.sub
 
         except jwt.ExpiredSignatureError as e:
             logger.warning("token_expired", error=str(e))
@@ -223,10 +223,6 @@ class JWTAuthProvider[ID: (int, UUID)](AuthProvider[ID]):
         except jwt.InvalidTokenError as e:
             logger.warning("token_invalid", error=str(e))
             raise InvalidTokenError(f"Invalid token: {e!s}") from e
-
-        except (ValueError, KeyError) as e:
-            logger.warning("token_payload_invalid", error=str(e))
-            raise InvalidTokenError(f"Invalid token payload: {e!s}") from e
 
     def can_authenticate(self, request: Request) -> bool:
         """Check if request contains JWT Bearer token.
@@ -250,7 +246,8 @@ class JWTAuthProvider[ID: (int, UUID)](AuthProvider[ID]):
         """Authenticate request using JWT access token.
 
         Extracts and verifies the JWT token from the Authorization header,
-        validates the token, retrieves the user, and checks account status.
+        validates the token, parses the user ID, retrieves the user, and
+        checks account status.
 
         Args:
             request: FastAPI request object.
@@ -273,9 +270,20 @@ class JWTAuthProvider[ID: (int, UUID)](AuthProvider[ID]):
             return None
 
         try:
-            user_id = self.verify_token(token, expected_type="access")
+            user_id_str = self.verify_token(token, expected_type="access")
         except (InvalidTokenError, TokenExpiredError):
             return None
+
+        try:
+            user_id = user_service.parse_id(user_id_str)
+        except Exception as e:
+            logger.warning(
+                "authentication_failed",
+                reason="invalid_user_id_in_token",
+                user_id_str=user_id_str,
+                error=str(e),
+            )
+            raise InvalidTokenError(f"Invalid user ID in token: {user_id_str!r}") from e
 
         try:
             user = await user_service.get_by_id(user_id)

@@ -11,13 +11,30 @@ import structlog
 from app.core.security.password import PasswordHasher
 
 from .exceptions import UserAlreadyExistsError, UserNotFoundError
+from .mixins import IntIDMixin, UUIDIDMixin
 from .models import User
 from .repositories import UserRepository
 from .schemas import UserCreate, UserUpdate
 
 
 class UserService[ID: (int, UUID)]:
-    """Service class for user business logic operations."""
+    """Service class for user business logic operations.
+
+    This class defines the core business logic and an abstract parse_id
+    method. Concrete implementations should compose this class with an
+    ID parsing mixin (IntIDMixin or UUIDIDMixin) via multiple inheritance.
+
+    The mixin must be listed BEFORE UserService in the inheritance order
+    to ensure Python's Method Resolution Order (MRO) resolves parse_id
+    to the mixin's implementation.
+
+    Example:
+        >>> from app.domains.users.mixins import IntIDMixin
+        >>> class IntUserService(IntIDMixin, UserService[int]):
+        ...     pass
+        >>> service = IntUserService(repository, password_service)
+        >>> user_id = service.parse_id("123")  # Returns 123 (int)
+    """
 
     def __init__(
         self,
@@ -33,6 +50,30 @@ class UserService[ID: (int, UUID)]:
         self._repository: UserRepository[ID] = user_repository
         self._password_service = password_service
         self.logger = structlog.get_logger("users")
+
+    def parse_id(self, value: str) -> ID:
+        """Parse string ID to typed ID (implemented by mixins).
+
+        This method is abstract and must be implemented by composing
+        UserService with an ID mixin (IntIDMixin or UUIDIDMixin) via
+        multiple inheritance. The mixin implementation will be resolved
+        via Python's Method Resolution Order (MRO).
+
+        Args:
+            value: String representation of user ID.
+
+        Returns:
+            Typed ID instance.
+
+        Raises:
+            InvalidUserIDError: If parsing fails (raised by mixin).
+            NotImplementedError: If UserService is used without a mixin.
+        """
+        raise NotImplementedError(
+            "UserService must be composed with an ID mixin "
+            "(IntIDMixin or UUIDIDMixin) to provide parse_id implementation. "
+            "Example: class IntUserService(IntIDMixin, UserService[int]): pass"
+        )
 
     async def verify_password(self, user: User, password: str) -> bool:
         """Verify user password against stored hash.
@@ -289,3 +330,25 @@ class UserService[ID: (int, UUID)]:
             username=existing_user.username,
             operation="delete",
         )
+
+
+class IntUserService(IntIDMixin, UserService[int]):
+    """UserService with integer ID parsing via IntIDMixin composition.
+
+    MRO: IntUserService -> IntIDMixin -> UserService[int]
+    The IntIDMixin.parse_id method overrides UserService.parse_id via
+    Python's Method Resolution Order, providing integer ID parsing implementation.
+    """
+
+    pass
+
+
+class UUIDUserService(UUIDIDMixin, UserService[UUID]):
+    """UserService with UUID ID parsing via UUIDIDMixin composition.
+
+    MRO: UUIDUserService -> UUIDIDMixin -> UserService[UUID]
+    The UUIDIDMixin.parse_id method overrides UserService.parse_id via
+    Python's Method Resolution Order, providing UUID ID parsing implementation.
+    """
+
+    pass

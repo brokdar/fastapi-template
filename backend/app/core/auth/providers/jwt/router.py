@@ -93,7 +93,7 @@ def create_jwt_router[ID: (int, UUID)](provider: JWTAuthProvider[ID]) -> APIRout
         if user.id is None:
             raise InvalidCredentialsError("User ID is None after authentication")
 
-        token_response = provider.create_token_response(user.id)
+        token_response = provider.create_token_response(str(user.id))
 
         logger.info(
             "login_successful",
@@ -131,7 +131,10 @@ def create_jwt_router[ID: (int, UUID)](provider: JWTAuthProvider[ID]) -> APIRout
             UserNotFoundError: If user from token not found.
             InactiveUserError: If user account is inactive.
         """
-        user_id = provider.verify_token(request.refresh_token, expected_type="refresh")
+        user_id_str = provider.verify_token(
+            request.refresh_token, expected_type="refresh"
+        )
+        user_id = user_service.parse_id(user_id_str)
 
         user = await user_service.get_by_id(user_id)
 
@@ -146,7 +149,7 @@ def create_jwt_router[ID: (int, UUID)](provider: JWTAuthProvider[ID]) -> APIRout
         if user.id is None:
             raise InvalidCredentialsError("User ID is None after token verification")
 
-        token_response = provider.create_token_response(user.id)
+        token_response = provider.create_token_response(str(user.id))
 
         logger.info(
             "token_refresh_successful",
