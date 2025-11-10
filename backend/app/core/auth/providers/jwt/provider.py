@@ -73,6 +73,31 @@ class JWTAuthProvider[ID: (int, UUID)](AuthProvider[ID]):
         self.access_token_expire_minutes = access_token_expire_minutes
         self.refresh_token_expire_days = refresh_token_expire_days
 
+    def _create_token(
+        self, user_id: str, token_type: str, expire_delta: timedelta
+    ) -> str:
+        """Create JWT token with standard RFC 7519 claims.
+
+        Args:
+            user_id: User identifier for sub claim.
+            token_type: Token type for type claim ("access" or "refresh").
+            expire_delta: Time until expiration.
+
+        Returns:
+            Encoded JWT token string.
+        """
+        now = datetime.now(UTC)
+        expire = now + expire_delta
+
+        payload: dict[str, Any] = {
+            "sub": user_id,
+            "exp": int(expire.timestamp()),
+            "iat": int(now.timestamp()),
+            "type": token_type,
+        }
+
+        return jwt.encode(payload, self.secret_key, algorithm=self.algorithm)
+
     def create_access_token(self, user_id: str) -> str:
         """Create RFC 7519-compliant access token.
 
@@ -88,17 +113,9 @@ class JWTAuthProvider[ID: (int, UUID)](AuthProvider[ID]):
         Returns:
             Encoded JWT access token string.
         """
-        now = datetime.now(UTC)
-        expire = now + timedelta(minutes=self.access_token_expire_minutes)
-
-        payload: dict[str, Any] = {
-            "sub": user_id,
-            "exp": int(expire.timestamp()),
-            "iat": int(now.timestamp()),
-            "type": "access",
-        }
-
-        token = jwt.encode(payload, self.secret_key, algorithm=self.algorithm)
+        token = self._create_token(
+            user_id, "access", timedelta(minutes=self.access_token_expire_minutes)
+        )
         logger.debug(
             "access_token_created",
             user_id=user_id,
@@ -121,17 +138,9 @@ class JWTAuthProvider[ID: (int, UUID)](AuthProvider[ID]):
         Returns:
             Encoded JWT refresh token string.
         """
-        now = datetime.now(UTC)
-        expire = now + timedelta(days=self.refresh_token_expire_days)
-
-        payload: dict[str, Any] = {
-            "sub": user_id,
-            "exp": int(expire.timestamp()),
-            "iat": int(now.timestamp()),
-            "type": "refresh",
-        }
-
-        token = jwt.encode(payload, self.secret_key, algorithm=self.algorithm)
+        token = self._create_token(
+            user_id, "refresh", timedelta(days=self.refresh_token_expire_days)
+        )
         logger.debug(
             "refresh_token_created",
             user_id=user_id,
@@ -249,6 +258,10 @@ class JWTAuthProvider[ID: (int, UUID)](AuthProvider[ID]):
         validates the token, parses the user ID, retrieves the user, and
         checks account status.
 
+        Note: User lookup failures are transformed to InvalidTokenError to
+        maintain token-centric error reporting. This prevents leaking
+        information about user existence via token verification.
+
         Args:
             request: FastAPI request object.
             user_service: User service implementing authentication operations.
@@ -257,9 +270,7 @@ class JWTAuthProvider[ID: (int, UUID)](AuthProvider[ID]):
             Authenticated User object or None if authentication fails.
 
         Raises:
-            InvalidTokenError: Token is invalid or malformed.
-            TokenExpiredError: Token has expired.
-            UserNotFoundError: User from token not found in database.
+            InvalidTokenError: Token is invalid, malformed, or user not found.
             InactiveUserError: User account is inactive.
         """
         auth_header = request.headers.get("Authorization", "")
@@ -293,7 +304,7 @@ class JWTAuthProvider[ID: (int, UUID)](AuthProvider[ID]):
                 reason="user_not_found",
                 user_id=user_id,
             )
-            raise e
+            raise InvalidTokenError("Invalid token: user not found") from e
 
         if not user.is_active:
             logger.warning(
