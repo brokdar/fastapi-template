@@ -550,11 +550,3 @@ class TestRouterGeneration:
         router = jwt_provider.get_router()
 
         assert router.prefix == "/jwt"
-
-    def test_get_router_has_authentication_tags(
-        self, jwt_provider: JWTAuthProvider[int]
-    ) -> None:
-        """Test router has correct tags for OpenAPI."""
-        router = jwt_provider.get_router()
-
-        assert "Authentication" in router.tags

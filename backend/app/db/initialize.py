@@ -13,19 +13,43 @@ from app.domains.users.services import UserService
 
 
 async def init_db() -> None:
-    """Initialize database with required initial data."""
+    """Initialize the database with required system data.
+
+    Creates a database session and ensures that a super user account exists.
+    This function is typically called during application startup or via the
+    CLI to bootstrap a fresh database with administrative access.
+
+    The super user credentials are loaded from application settings and
+    should be configured via environment variables (SUPER_USER__NAME,
+    SUPER_USER__PASSWORD, SUPER_USER__EMAIL).
+    """
     async for session in get_session():
         await ensure_super_user(session)
 
 
 async def ensure_super_user(session: AsyncSession) -> None:
-    """Ensure super user exists in database."""
+    """Ensure a super user account exists in the database.
+
+    Checks if a super user with the configured username already exists.
+    If not found, creates a new super user with admin role using credentials
+    from application settings. This guarantees administrative access even on
+    a freshly initialized database.
+
+    The function is idempotent - it can be safely called multiple times
+    without creating duplicate accounts.
+
+    Args:
+        session: Active database session for executing queries.
+
+    Raises:
+        ValidationError: If super user credentials from settings are invalid.
+        DatabaseError: If database operations fail during user creation.
+    """
     service = UserService(UserRepository(session), password_service)
     settings = get_settings()
     try:
         await service.get_by_name(settings.SUPER_USER.NAME)
     except UserNotFoundError:
-        # Create super user if not found
         user_data = UserCreate.model_construct(
             username=settings.SUPER_USER.NAME,
             password=settings.SUPER_USER.PASSWORD,

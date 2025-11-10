@@ -30,14 +30,6 @@ class TestCreateJWTRouter:
 
         assert router.prefix == "/jwt"
 
-    def test_create_jwt_router_has_correct_tags(
-        self, jwt_provider: JWTAuthProvider[int]
-    ) -> None:
-        """Test router has correct tags."""
-        router = create_jwt_router(jwt_provider)
-
-        assert router.tags == ["Authentication"]
-
     def test_create_jwt_router_has_two_endpoints(
         self, jwt_provider: JWTAuthProvider[int]
     ) -> None:

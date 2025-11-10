@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 from enum import StrEnum
 
 from pydantic import EmailStr
-from sqlalchemy import Column, DateTime, text
+from sqlalchemy import Column, DateTime, Enum, text
 from sqlmodel import Field
 
 from app.core.base.models import IntModel
@@ -24,7 +24,16 @@ class User(IntModel, table=True):
     email: EmailStr = Field(unique=True, index=True, max_length=255)
     first_name: str | None = Field(default=None, max_length=100)
     last_name: str | None = Field(default=None, max_length=100)
-    role: UserRole = UserRole.USER
+    role: UserRole = Field(
+        default=UserRole.USER,
+        sa_column=Column(
+            Enum(
+                UserRole,
+                name="userrole",
+                values_callable=lambda obj: [e.value for e in obj],
+            )
+        ),
+    )
     is_active: bool = True
     hashed_password: str = Field(max_length=255)
     created_at: datetime = Field(

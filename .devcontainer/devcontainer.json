@@ -10,6 +10,17 @@
 		"ghcr.io/dotnet/aspire-devcontainer-feature/dotnetaspire:1": {}
 	},
 	"postCreateCommand": "bash .devcontainer/startup.sh",
+	"forwardPorts": [8000, 5432],
+	"portsAttributes": {
+		"8000": {
+			"label": "API Service",
+			"onAutoForward": "notify"
+		},
+		"5432": {
+			"label": "PostgreSQL Database",
+			"onAutoForward": "silent"
+		}
+	},
 	"customizations": {
 		"vscode": {
 			"extensions": [

@@ -20,14 +20,6 @@ services:
       - postgres-data:/var/lib/postgresql/data
 
   pre-start:
-    restart: unless-stopped
-    ports:
-      - "8000:8000"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000${API_PATH}/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
     command: sh scripts/prestart.sh
     env_file:
       - .env
@@ -40,7 +32,9 @@ services:
       - SUPER_USER__NAME=${SUPER_USER_NAME}
       - SUPER_USER__EMAIL=${SUPER_USER_EMAIL}
       - SUPER_USER__PASSWORD=${SUPER_USER_PASSWORD}
-      - LOG__LEVEL=${LOG_LEVEL}
+      - LOG__LEVEL=${LOG_LEVEL:-INFO}
+      - LOG__FILE_PATH=${LOG_FILE_PATH:-}
+      - LOG__DISABLE_COLORS=${LOG_DISABLE_COLORS:-false}
       - API_PATH=${API_PATH}
     depends_on:
       db:
@@ -53,7 +47,7 @@ services:
   api:
     restart: unless-stopped
     ports:
-      - "8001:8000"
+      - "8000:8000"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000${API_PATH}/health"]
       interval: 10s
@@ -70,11 +64,13 @@ services:
       - SUPER_USER__NAME=${SUPER_USER_NAME}
       - SUPER_USER__EMAIL=${SUPER_USER_EMAIL}
       - SUPER_USER__PASSWORD=${SUPER_USER_PASSWORD}
-      - JWT__SECRET_KEY=${JWT_SECRET_KEY}
-      - JWT__ALGORITHM=${JWT_ALGORITHM}
-      - JWT__ACCESS_TOKEN_EXPIRE_MINUTES=${JWT_ACCESS_TOKEN_EXPIRE_MINUTES}
-      - JWT__REFRESH_TOKEN_EXPIRE_DAYS=${JWT_REFRESH_TOKEN_EXPIRE_DAYS}
-      - LOG__LEVEL=${LOG_LEVEL}
+      - AUTH__JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - AUTH__JWT_ALGORITHM=${JWT_ALGORITHM:-HS256}
+      - AUTH__JWT_ACCESS_TOKEN_EXPIRE_MINUTES=${JWT_ACCESS_TOKEN_EXPIRE_MINUTES:-15}
+      - AUTH__JWT_REFRESH_TOKEN_EXPIRE_DAYS=${JWT_REFRESH_TOKEN_EXPIRE_DAYS:-7}
+      - LOG__LEVEL=${LOG_LEVEL:-INFO}
+      - LOG__FILE_PATH=${LOG_FILE_PATH:-}
+      - LOG__DISABLE_COLORS=${LOG_DISABLE_COLORS:-false}
       - API_PATH=${API_PATH}
     depends_on:
       db:

@@ -34,7 +34,7 @@ def create_jwt_router[ID: (int, UUID)](provider: JWTAuthProvider[ID]) -> APIRout
     Returns:
         APIRouter containing JWT authentication endpoints.
     """
-    router = APIRouter(prefix="/jwt", tags=["Authentication"])
+    router = APIRouter(prefix="/jwt")
 
     @router.post(
         "/login",

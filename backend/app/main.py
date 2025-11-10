@@ -32,7 +32,7 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
 
 app = FastAPI(
     title=settings.APPLICATION_NAME,
-    description="FastAPI template using Supabase for user management and authentication.",
+    description="FastAPI template with user management and authentication.",
     version="1.0.0",
     root_path=settings.API_PATH,
     generate_unique_id_function=custom_generate_unique_id,

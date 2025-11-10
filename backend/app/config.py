@@ -24,7 +24,7 @@ class DatabaseSettings(BaseModel):
     SERVER: str = "localhost"
     PORT: Annotated[int, Field(ge=1, le=65535)] = 5432
     USER: str = "postgres"
-    PASSWORD: Annotated[SecretStr, Field(min_length=16)] = SecretStr("")
+    PASSWORD: SecretStr = SecretStr("your-secure-password")
     DB: str = ""
 
 
@@ -33,7 +33,7 @@ class SuperUserSettings(BaseModel):
 
     NAME: str = "admin"
     EMAIL: str = "admin@example.com"
-    PASSWORD: Annotated[SecretStr, Field(min_length=16)] = SecretStr("admin")
+    PASSWORD: SecretStr = SecretStr("admin")
 
 
 class Settings(BaseSettings):
@@ -41,7 +41,7 @@ class Settings(BaseSettings):
 
     VERSION: str = "1.0.0"
     API_PATH: str = "/api/v1"
-    APPLICATION_NAME: str = "FastAPI Supabase Template"
+    APPLICATION_NAME: str = "FastAPI Template"
     CORS_ORIGINS: list[str] = ["*"]
 
     LOG: LogSettings = LogSettings()
