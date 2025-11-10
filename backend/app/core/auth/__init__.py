@@ -16,6 +16,7 @@ from app.core.auth.providers.jwt import (
     TokenResponse,
 )
 from app.core.auth.services import AuthService
+from app.core.auth.signature_utils import typed_signature
 
 __all__ = [
     "AuthProvider",
@@ -30,4 +31,5 @@ __all__ = [
     "TokenExpiredError",
     "InactiveUserError",
     "InsufficientPermissionsError",
+    "typed_signature",
 ]

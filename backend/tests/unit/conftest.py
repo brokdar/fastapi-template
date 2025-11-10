@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from fastapi.testclient import TestClient
+from pytest_mock import MockerFixture
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.config import get_settings
@@ -69,3 +70,24 @@ def admin_user(create_user: Callable[..., User]) -> User:
         last_name="User",
         role=UserRole.ADMIN,
     )
+
+
+@pytest.fixture
+def authenticated_client(admin_user: User, mocker: MockerFixture) -> TestClient:
+    """Return a test client with admin authentication.
+
+    This fixture is provider-agnostic and works with any authentication provider
+    by mocking all providers' authenticate methods to return the admin user.
+    """
+    from app.dependencies import auth_service
+
+    async def mock_authenticate(*args: Any, **kwargs: Any) -> User:
+        return admin_user
+
+    for provider in auth_service._providers:
+        mocker.patch.object(provider, "authenticate", side_effect=mock_authenticate)
+
+    client = TestClient(app)
+    client.headers = {"Authorization": "Bearer mock-token-for-testing"}
+
+    return client

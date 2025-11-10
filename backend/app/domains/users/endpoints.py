@@ -4,8 +4,10 @@ This module defines all REST API endpoints for user CRUD operations.
 Follows FastAPI best practices with proper validation, documentation, and error handling.
 """
 
+from typing import Annotated
+
 import structlog
-from fastapi import Depends, status
+from fastapi import Security, status
 from fastapi.routing import APIRouter
 
 from app.core.exceptions.schemas import (
@@ -15,7 +17,7 @@ from app.core.exceptions.schemas import (
 )
 from app.core.pagination import Page, PaginationDependency
 from app.dependencies import UserServiceDependency, auth_service
-from app.domains.users.models import User
+from app.domains.users.models import User, UserRole
 
 from .schemas import UserCreate, UserResponse, UserUpdate
 
@@ -26,6 +28,9 @@ logger = structlog.get_logger("users.endpoints")
 
 @router.get(
     "/",
+    dependencies=[
+        Security(auth_service.require_roles(UserRole.ADMIN), scopes=[UserRole.ADMIN])
+    ],
     response_model=Page[UserResponse],
     status_code=status.HTTP_200_OK,
     summary="Get all users",
@@ -68,6 +73,9 @@ async def get_users(
 
 @router.get(
     "/{user_id}",
+    dependencies=[
+        Security(auth_service.require_roles(UserRole.ADMIN), scopes=[UserRole.ADMIN])
+    ],
     response_model=UserResponse,
     status_code=status.HTTP_200_OK,
     summary="Get user by ID",
@@ -100,6 +108,9 @@ async def get_user(
 
 @router.post(
     "/",
+    dependencies=[
+        Security(auth_service.require_roles(UserRole.ADMIN), scopes=[UserRole.ADMIN])
+    ],
     response_model=UserResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Create new user",
@@ -132,6 +143,9 @@ async def create_user(
 
 @router.patch(
     "/{user_id}",
+    dependencies=[
+        Security(auth_service.require_roles(UserRole.ADMIN), scopes=[UserRole.ADMIN])
+    ],
     response_model=UserResponse,
     status_code=status.HTTP_200_OK,
     summary="Update user",
@@ -170,6 +184,9 @@ async def update_user(
 
 @router.delete(
     "/{user_id}",
+    dependencies=[
+        Security(auth_service.require_roles(UserRole.ADMIN), scopes=[UserRole.ADMIN])
+    ],
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete user by ID",
     description="Delete a user account permanently",
@@ -218,7 +235,7 @@ async def delete_user(
     },
 )
 async def get_user_profile(
-    user: User = Depends(auth_service.require_user),
+    user: Annotated[User, Security(auth_service.require_user)],
 ) -> UserResponse:
     """Retrieve current authenticated user's information.
 
@@ -269,7 +286,7 @@ async def get_user_profile(
 async def update_user_profile(
     user_update: UserUpdate,
     user_service: UserServiceDependency,
-    user: User = Depends(auth_service.require_user),
+    user: Annotated[User, Security(auth_service.require_user)],
 ) -> UserResponse:
     """Update current user's information.
 

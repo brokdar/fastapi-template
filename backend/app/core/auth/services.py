@@ -1,6 +1,8 @@
 """Authentication orchestration service managing multiple providers."""
 
 from collections.abc import Awaitable, Callable, Sequence
+from inspect import Parameter, Signature
+from typing import Any, cast
 from uuid import UUID
 
 import structlog
@@ -8,6 +10,7 @@ from fastapi import Depends, FastAPI, Request
 
 from app.core.auth.exceptions import InvalidTokenError
 from app.core.auth.providers.base import AuthProvider
+from app.core.auth.signature_utils import typed_signature
 from app.core.exceptions import AuthorizationError
 from app.domains.users.models import User, UserRole
 from app.domains.users.services import UserService
@@ -46,6 +49,64 @@ class AuthService[ID: (int, UUID)]:
         self.get_user_service: UserServiceDependency[ID] = get_user_service
         self._providers: Sequence[AuthProvider[ID]] = providers
 
+    def _get_dependency_signature(self) -> Signature:
+        """Generate dynamic signature with security schemes from all providers.
+
+        Creates a function signature that includes Depends(scheme) parameters for
+        each provider's security scheme. FastAPI inspects this signature to register
+        all security schemes in OpenAPI documentation with OR logic.
+
+        The generated signature includes:
+        - request: Request parameter
+        - token_{provider_name}: One parameter per provider with Depends(scheme)
+        - user_service: UserService dependency
+
+        Parameter names are unique even if multiple providers have the same name
+        (e.g., token_jwt, token_jwt_1, token_jwt_2).
+
+        Returns:
+            Signature with all provider security schemes as dependencies.
+        """
+        parameters: list[Parameter] = [
+            Parameter(
+                name="request",
+                kind=Parameter.POSITIONAL_OR_KEYWORD,
+                annotation=Request,
+            )
+        ]
+
+        seen_names: set[str] = set()
+        for provider in self._providers:
+            scheme = provider.get_security_scheme()
+
+            base_name = f"token_{provider.name}"
+            param_name = base_name
+            counter = 1
+            while param_name in seen_names:
+                param_name = f"{base_name}_{counter}"
+                counter += 1
+            seen_names.add(param_name)
+
+            parameters.append(
+                Parameter(
+                    name=param_name,
+                    kind=Parameter.POSITIONAL_OR_KEYWORD,
+                    default=Depends(cast(Callable[..., Any], scheme)),
+                    annotation=str | None,
+                )
+            )
+
+        parameters.append(
+            Parameter(
+                name="user_service",
+                kind=Parameter.POSITIONAL_OR_KEYWORD,
+                default=Depends(self.get_user_service),
+                annotation=UserService[ID],
+            )
+        )
+
+        return Signature(parameters, return_annotation=User)
+
     async def _authenticate(
         self, request: Request, user_service: UserService[ID]
     ) -> User:
@@ -72,15 +133,13 @@ class AuthService[ID: (int, UUID)]:
     def require_user(self) -> Callable[..., Awaitable[User]]:
         """FastAPI dependency for requiring authenticated user.
 
-        Returns a dependency function that injects UserRepository per-request
-        and authenticates the user using registered providers.
+        Generates a dependency with dynamic signature including all provider
+        security schemes for OpenAPI documentation. At runtime, ignores the
+        token_* parameters and uses the standard multi-provider authentication.
 
-        Use this as a dependency in route handlers to protect endpoints.
-
-        Example:
-            @app.get("/protected")
-            async def protected_route(user: User = Depends(auth_service.require_user)):
-                return {"user_id": user.id}
+        The generated signature includes Depends(scheme) for each provider,
+        allowing FastAPI to register all security schemes in OpenAPI with OR
+        logic (user can authenticate with any one provider).
 
         Returns:
             Dependency function that authenticates and returns the user.
@@ -88,10 +147,13 @@ class AuthService[ID: (int, UUID)]:
         Raises:
             InvalidTokenError: If authentication fails.
         """
+        signature = self._get_dependency_signature()
 
+        @typed_signature(signature)
         async def dependency(
             request: Request,
-            user_service: UserService[ID] = Depends(self.get_user_service),
+            user_service: UserService[ID],
+            **kwargs: Any,
         ) -> User:
             return await self._authenticate(request, user_service)
 
@@ -100,9 +162,9 @@ class AuthService[ID: (int, UUID)]:
     def require_roles(self, *roles: UserRole) -> Callable[..., Awaitable[User]]:
         """FastAPI dependency factory for role-based access control.
 
-        Creates a dependency that requires the user to have one of the
-        specified roles. Injects UserRepository per-request and performs
-        authentication before checking roles.
+        Generates a dependency with dynamic signature including all provider
+        security schemes for OpenAPI documentation. At runtime, authenticates
+        user and validates they have one of the required roles.
 
         Args:
             *roles: One or more required roles (user must have at least one).
@@ -114,10 +176,13 @@ class AuthService[ID: (int, UUID)]:
             InvalidTokenError: If authentication fails.
             AuthorizationError: If user doesn't have required role.
         """
+        signature = self._get_dependency_signature()
 
+        @typed_signature(signature)
         async def dependency(
             request: Request,
-            user_service: UserService[ID] = Depends(self.get_user_service),
+            user_service: UserService[ID],
+            **kwargs: Any,
         ) -> User:
             user = await self._authenticate(request, user_service)
             if user.role not in roles:

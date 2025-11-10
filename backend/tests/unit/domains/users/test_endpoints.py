@@ -31,7 +31,7 @@ class TestGetUsersEndpoint:
 
     def test_returns_200_and_user_list_with_default_pagination(
         self,
-        unauthenticated_client: TestClient,
+        authenticated_client: TestClient,
         api_prefix: str,
         sample_users: list[User],
         mock_user_service: AsyncMock,
@@ -39,7 +39,7 @@ class TestGetUsersEndpoint:
         """Test successful user list retrieval with default pagination."""
         mock_user_service.get_all.return_value = (sample_users, 2)
 
-        response = unauthenticated_client.get(f"{api_prefix}/users/")
+        response = authenticated_client.get(f"{api_prefix}/users/")
 
         assert response.status_code == status.HTTP_200_OK
 
@@ -56,7 +56,7 @@ class TestGetUsersEndpoint:
 
     def test_returns_200_with_custom_pagination(
         self,
-        unauthenticated_client: TestClient,
+        authenticated_client: TestClient,
         api_prefix: str,
         sample_users: list[User],
         mock_user_service: AsyncMock,
@@ -64,7 +64,7 @@ class TestGetUsersEndpoint:
         """Test user list retrieval with custom pagination parameters."""
         mock_user_service.get_all.return_value = (sample_users[:1], 50)
 
-        response = unauthenticated_client.get(f"{api_prefix}/users/?offset=1&limit=1")
+        response = authenticated_client.get(f"{api_prefix}/users/?offset=1&limit=1")
 
         assert response.status_code == status.HTTP_200_OK
 
@@ -93,14 +93,14 @@ class TestGetUsersEndpoint:
     )
     def test_returns_422_for_invalid_pagination_parameters(
         self,
-        unauthenticated_client: TestClient,
+        authenticated_client: TestClient,
         api_prefix: str,
         offset: int,
         limit: int,
         expected_status: int,
     ) -> None:
         """Test validation errors for invalid pagination parameters."""
-        response = unauthenticated_client.get(
+        response = authenticated_client.get(
             f"{api_prefix}/users/?offset={offset}&limit={limit}"
         )
         assert response.status_code == expected_status
@@ -111,7 +111,7 @@ class TestGetUserEndpoint:
 
     def test_returns_200_and_user_when_exists(
         self,
-        unauthenticated_client: TestClient,
+        authenticated_client: TestClient,
         api_prefix: str,
         regular_user: User,
         mock_user_service: AsyncMock,
@@ -119,7 +119,7 @@ class TestGetUserEndpoint:
         """Test successful user retrieval by ID."""
         mock_user_service.get_by_id.return_value = regular_user
 
-        response = unauthenticated_client.get(f"{api_prefix}/users/1")
+        response = authenticated_client.get(f"{api_prefix}/users/1")
 
         assert response.status_code == status.HTTP_200_OK
 
@@ -135,25 +135,25 @@ class TestGetUserEndpoint:
 
     def test_returns_404_when_user_not_exists(
         self,
-        unauthenticated_client: TestClient,
+        authenticated_client: TestClient,
         api_prefix: str,
         mock_user_service: AsyncMock,
     ) -> None:
         """Test 404 response when user doesn't exist."""
         mock_user_service.get_by_id.side_effect = UserNotFoundError("User not found")
 
-        response = unauthenticated_client.get(f"{api_prefix}/users/999")
+        response = authenticated_client.get(f"{api_prefix}/users/999")
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
         mock_user_service.get_by_id.assert_called_once_with(999)
 
     def test_returns_422_for_invalid_user_id(
         self,
-        unauthenticated_client: TestClient,
+        authenticated_client: TestClient,
         api_prefix: str,
     ) -> None:
         """Test validation error for invalid user ID format."""
-        response = unauthenticated_client.get(f"{api_prefix}/users/invalid")
+        response = authenticated_client.get(f"{api_prefix}/users/invalid")
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
 
@@ -162,7 +162,7 @@ class TestCreateUserEndpoint:
 
     def test_returns_201_and_created_user(
         self,
-        unauthenticated_client: TestClient,
+        authenticated_client: TestClient,
         api_prefix: str,
         regular_user: User,
         user_create_data_dict: dict[str, Any],
@@ -171,7 +171,7 @@ class TestCreateUserEndpoint:
         """Test successful user creation."""
         mock_user_service.create_user.return_value = regular_user
 
-        response = unauthenticated_client.post(
+        response = authenticated_client.post(
             f"{api_prefix}/users/", json=user_create_data_dict
         )
 
@@ -187,7 +187,7 @@ class TestCreateUserEndpoint:
 
     def test_returns_409_when_user_already_exists(
         self,
-        unauthenticated_client: TestClient,
+        authenticated_client: TestClient,
         api_prefix: str,
         user_create_data_dict: dict[str, Any],
         mock_user_service: AsyncMock,
@@ -197,7 +197,7 @@ class TestCreateUserEndpoint:
             "User already exists"
         )
 
-        response = unauthenticated_client.post(
+        response = authenticated_client.post(
             f"{api_prefix}/users/", json=user_create_data_dict
         )
 
@@ -237,15 +237,13 @@ class TestCreateUserEndpoint:
     )
     def test_returns_422_for_invalid_user_data(
         self,
-        unauthenticated_client: TestClient,
+        authenticated_client: TestClient,
         api_prefix: str,
         invalid_data: dict[str, Any],
         expected_status: int,
     ) -> None:
         """Test validation errors for invalid user creation data."""
-        response = unauthenticated_client.post(
-            f"{api_prefix}/users/", json=invalid_data
-        )
+        response = authenticated_client.post(f"{api_prefix}/users/", json=invalid_data)
         assert response.status_code == expected_status
 
 
@@ -254,7 +252,7 @@ class TestUpdateUserEndpoint:
 
     def test_returns_200_and_updated_user(
         self,
-        unauthenticated_client: TestClient,
+        authenticated_client: TestClient,
         api_prefix: str,
         regular_user: User,
         mock_user_service: AsyncMock,
@@ -264,9 +262,7 @@ class TestUpdateUserEndpoint:
 
         mock_user_service.update_user.return_value = regular_user
 
-        response = unauthenticated_client.patch(
-            f"{api_prefix}/users/1", json=update_data
-        )
+        response = authenticated_client.patch(f"{api_prefix}/users/1", json=update_data)
 
         assert response.status_code == status.HTTP_200_OK
 
@@ -279,7 +275,7 @@ class TestUpdateUserEndpoint:
 
     def test_returns_404_when_user_not_exists(
         self,
-        unauthenticated_client: TestClient,
+        authenticated_client: TestClient,
         api_prefix: str,
         mock_user_service: AsyncMock,
     ) -> None:
@@ -288,7 +284,7 @@ class TestUpdateUserEndpoint:
 
         mock_user_service.update_user.side_effect = UserNotFoundError("User not found")
 
-        response = unauthenticated_client.patch(
+        response = authenticated_client.patch(
             f"{api_prefix}/users/999", json=update_data
         )
 
@@ -296,7 +292,7 @@ class TestUpdateUserEndpoint:
 
     def test_returns_409_on_conflict(
         self,
-        unauthenticated_client: TestClient,
+        authenticated_client: TestClient,
         api_prefix: str,
         mock_user_service: AsyncMock,
     ) -> None:
@@ -307,9 +303,7 @@ class TestUpdateUserEndpoint:
             "Email already exists"
         )
 
-        response = unauthenticated_client.patch(
-            f"{api_prefix}/users/1", json=update_data
-        )
+        response = authenticated_client.patch(f"{api_prefix}/users/1", json=update_data)
 
         assert response.status_code == status.HTTP_409_CONFLICT
 
@@ -319,12 +313,12 @@ class TestDeleteUserEndpoint:
 
     def test_returns_204_when_user_deleted(
         self,
-        unauthenticated_client: TestClient,
+        authenticated_client: TestClient,
         api_prefix: str,
         mock_user_service: AsyncMock,
     ) -> None:
         """Test successful user deletion."""
-        response = unauthenticated_client.delete(f"{api_prefix}/users/1")
+        response = authenticated_client.delete(f"{api_prefix}/users/1")
 
         assert response.status_code == status.HTTP_204_NO_CONTENT
         assert response.content == b""
@@ -333,13 +327,13 @@ class TestDeleteUserEndpoint:
 
     def test_returns_404_when_user_not_exists(
         self,
-        unauthenticated_client: TestClient,
+        authenticated_client: TestClient,
         api_prefix: str,
         mock_user_service: AsyncMock,
     ) -> None:
         """Test 404 response when deleting non-existent user."""
         mock_user_service.delete_user.side_effect = UserNotFoundError("User not found")
 
-        response = unauthenticated_client.delete(f"{api_prefix}/users/999")
+        response = authenticated_client.delete(f"{api_prefix}/users/999")
 
         assert response.status_code == status.HTTP_404_NOT_FOUND

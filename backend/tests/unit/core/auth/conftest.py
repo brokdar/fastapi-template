@@ -1,6 +1,7 @@
 """Shared fixtures for authentication tests."""
 
 from collections.abc import Callable
+from inspect import Parameter, Signature
 from typing import Any
 from unittest.mock import AsyncMock, Mock
 
@@ -9,6 +10,8 @@ from fastapi import APIRouter, FastAPI, Request
 
 from app.core.auth.providers.base import AuthProvider
 from app.core.auth.services import AuthService
+from app.domains.users.models import User
+from app.domains.users.services import UserService
 
 
 @pytest.fixture
@@ -65,6 +68,8 @@ def create_auth_provider() -> Callable[..., Mock]:
     """Factory function to create mock AuthProvider instances."""
 
     def _create_provider(**kwargs: Any) -> Mock:
+        from fastapi.security.base import SecurityBase
+
         provider = Mock(spec=AuthProvider)
         provider.name = kwargs.get("name", "test_provider")
         provider.can_authenticate.return_value = kwargs.get("can_authenticate", False)
@@ -72,6 +77,58 @@ def create_auth_provider() -> Callable[..., Mock]:
             return_value=kwargs.get("authenticate_return")
         )
         provider.get_router.return_value = kwargs.get("router", APIRouter())
+        provider.get_security_scheme.return_value = kwargs.get(
+            "security_scheme", Mock(spec=SecurityBase)
+        )
         return provider
 
     return _create_provider
+
+
+@pytest.fixture
+def sample_signature() -> Signature:
+    """Provide standard Request and UserService signature."""
+    return Signature(
+        [
+            Parameter("request", Parameter.POSITIONAL_OR_KEYWORD, annotation=Request),
+            Parameter(
+                "user_service", Parameter.POSITIONAL_OR_KEYWORD, annotation=UserService
+            ),
+        ]
+    )
+
+
+@pytest.fixture
+def simple_signature() -> Signature:
+    """Provide single parameter signature."""
+    return Signature(
+        [
+            Parameter("x", Parameter.POSITIONAL_OR_KEYWORD, annotation=int),
+        ]
+    )
+
+
+@pytest.fixture
+def complex_signature() -> Signature:
+    """Provide signature with defaults and annotations."""
+    return Signature(
+        [
+            Parameter("request", Parameter.POSITIONAL_OR_KEYWORD, annotation=Request),
+            Parameter("param1", Parameter.POSITIONAL_OR_KEYWORD, annotation=str),
+            Parameter(
+                "param2",
+                Parameter.POSITIONAL_OR_KEYWORD,
+                annotation=str | None,
+                default=None,
+            ),
+        ]
+    )
+
+
+@pytest.fixture
+def signature_with_return() -> Signature:
+    """Provide signature with explicit return annotation."""
+    return Signature(
+        [Parameter("x", Parameter.POSITIONAL_OR_KEYWORD, annotation=str)],
+        return_annotation=User,
+    )
