@@ -254,10 +254,12 @@ The `configure_logging()` function accepts the following parameters:
 You can configure logging via environment variables in your `.env` file:
 
 ```env
-LOG_LEVEL=DEBUG                    # Set log level
-LOG_FILE_PATH=logs/app.log        # Enable file logging
-LOG_DISABLE_COLORS=false          # Auto-detect colors (default)
+LOG__LEVEL=DEBUG                    # Set log level (note: double underscore for nested config)
+LOG__FILE_PATH=logs/app.log        # Enable file logging
+LOG__DISABLE_COLORS=false          # Auto-detect colors (default)
 ```
+
+**Note:** The configuration uses nested structure. Environment variables use double underscore (`__`) as delimiter (e.g., `LOG__LEVEL` → `settings.LOG.LEVEL`).
 
 ### Middleware Configuration
 
@@ -327,9 +329,9 @@ settings = get_settings()
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
     configure_logging(
-        log_level=settings.LOG_LEVEL,
-        log_file_path=settings.LOG_FILE_PATH,
-        disable_colors=settings.LOG_DISABLE_COLORS,
+        log_level=settings.LOG.LEVEL,
+        log_file_path=settings.LOG.FILE_PATH,
+        disable_colors=settings.LOG.DISABLE_COLORS,
     )
     yield
 ```

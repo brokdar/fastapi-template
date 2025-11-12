@@ -4,10 +4,15 @@
       "Bash(docker compose:*)",
       "Bash(docker logs:*)",
       "Bash(docker ps:*)",
-      "WebFetch(domain:github.com)",
-      "Bash(python3:*)"
+      "Bash(tree:*)",
+      "Bash(cat:*)",
+      "Bash(find:*)",
+      "Bash(source:*)",
+      "Bash(uv run mypy:*)",
+      "Bash(uv run ruff:*)",
+      "Bash(uv run:*)"
     ],
-    "deny": [],
-    "ask": []
+    "deny": [ ],
+    "ask": [ ]
   }
 }

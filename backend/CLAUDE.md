@@ -80,9 +80,9 @@ The application starts in `app/main.py`:
 async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
     """Configure logging after uvicorn starts but before handling requests."""
     configure_logging(
-        log_level=settings.LOG_LEVEL,
-        log_file_path=settings.LOG_FILE_PATH,
-        disable_colors=settings.LOG_DISABLE_COLORS,
+        log_level=settings.LOG.LEVEL,
+        log_file_path=settings.LOG.FILE_PATH,
+        disable_colors=settings.LOG.DISABLE_COLORS,
     )
     yield
 ```
@@ -182,13 +182,15 @@ Settings are loaded from environment variables via `app/config.py`:
 - Access via `get_settings()` function
 - Supports nested environment variables with `__` delimiter
 
-Key settings:
+Key settings (use `__` delimiter for nested configuration in environment variables):
 
-- `LOG_LEVEL`: Logging verbosity (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-- `LOG_FILE_PATH`: Optional file path for JSON log output
-- `LOG_DISABLE_COLORS`: Disable colored console output
+- `LOG__LEVEL`: Logging verbosity (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+- `LOG__FILE_PATH`: Optional file path for JSON log output
+- `LOG__DISABLE_COLORS`: Disable colored console output
 - `API_PATH`: API route prefix (default: `/api/v1`)
 - `CORS_ORIGINS`: Allowed CORS origins
+
+**Note:** The configuration uses nested structure with double underscore (`__`) as delimiter. For example, `LOG__LEVEL` maps to `settings.LOG.LEVEL` in code.
 
 ## Critical Development Rules
 
