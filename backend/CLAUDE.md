@@ -32,9 +32,28 @@ mypy                        # Type checking
 ```bash
 pytest                      # Run all tests
 pytest tests/unit/          # Run unit tests only
+pytest tests/integration/   # Run integration tests only
 pytest -v                   # Verbose test output
 pytest --cov                # Run tests with coverage
 ```
+
+**Integration Tests** - Tests that validate the complete application stack with a real PostgreSQL database:
+
+```bash
+./scripts/run-integration-tests.sh              # Run all integration tests with database setup
+./scripts/run-integration-tests.sh -v           # Verbose output
+./scripts/run-integration-tests.sh -k "users"   # Run tests matching pattern
+```
+
+The integration test script automatically:
+
+- Starts a PostgreSQL test database via Docker Compose
+- Runs Alembic migrations
+- Initializes the database with test data
+- Executes integration tests with transaction-based isolation
+- Cleans up all resources after completion
+
+See **@tests/integration/README.md** for comprehensive integration testing documentation.
 
 ### Package Management
 
@@ -133,7 +152,7 @@ FastAPI dependencies are centralized in `app/dependencies.py`. This file provide
 
 The application follows a domain-driven architecture where each business domain is isolated:
 
-```
+```txt
 app/
 ├── core/              # Cross-cutting concerns (logging, middleware, utilities)
 ├── domains/           # Business domains (each is self-contained)
@@ -148,6 +167,7 @@ app/
 ├── dependencies.py    # FastAPI dependency injection
 ├── main.py           # Application entry point
 └── routes.py         # Central route registration
+
 ```
 
 ### API Implementation Rules
@@ -338,7 +358,7 @@ When creating a new domain:
 
 Tests mirror the app structure:
 
-```
+```txt
 tests/
 └── unit/
     ├── conftest.py          # Shared fixtures

@@ -72,6 +72,108 @@ async def get_users(
 
 
 @router.get(
+    "/me",
+    response_model=UserResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Retrieve current authenticated user's information",
+    description="Common pattern for self-service user info retrieval",
+    responses={
+        200: {"description": "User information retrieved successfully"},
+        401: {
+            "model": ErrorResponse,
+            "description": "Authentication required",
+        },
+        500: {
+            "model": InternalServerErrorResponse,
+            "description": "Internal server error",
+        },
+    },
+)
+async def get_user_profile(
+    user: Annotated[User, Security(auth_service.require_user)],
+) -> UserResponse:
+    """Retrieve current authenticated user's information.
+
+    Returns the full user information for the currently authenticated user.
+    Requires valid authentication to access this endpoint.
+
+    Args:
+        user: Currently authenticated user from dependency.
+
+    Returns:
+        UserResponse: Current user's information.
+    """
+    logger.info(
+        "user_profile_access",
+        user_id=user.id,
+        username=user.username,
+    )
+
+    return UserResponse.model_validate(user)
+
+
+@router.patch(
+    "/me",
+    response_model=UserResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Update current user's information",
+    description="RESTful partial update of current user's profile information",
+    responses={
+        200: {"description": "User updated successfully"},
+        400: {
+            "model": ErrorResponse,
+            "description": "Email already in use (UPDATE_USER_EMAIL_ALREADY_EXISTS), Invalid password format (UPDATE_USER_INVALID_PASSWORD)",
+        },
+        401: {
+            "model": ErrorResponse,
+            "description": "Authentication required",
+        },
+        422: {
+            "model": ValidationErrorResponse,
+            "description": "Invalid user data",
+        },
+        500: {
+            "model": InternalServerErrorResponse,
+            "description": "Internal server error",
+        },
+    },
+)
+async def update_user_profile(
+    user_update: UserUpdate,
+    user_service: UserServiceDependency,
+    user: Annotated[User, Security(auth_service.require_user)],
+) -> UserResponse:
+    """Update current user's information.
+
+    Updates only the fields provided in the request body using RESTful partial update.
+    All fields are optional. Username and email must remain unique if updated.
+
+    Args:
+        user_update: User update data with optional fields.
+        user: Currently authenticated user.
+        user_service: User service for database operations.
+
+    Returns:
+        UserResponse: Updated user information.
+
+    Raises:
+        UserAlreadyExistsError: For UPDATE_USER_EMAIL_ALREADY_EXISTS.
+        ValidationError: For UPDATE_USER_INVALID_PASSWORD.
+    """
+    logger.info(
+        "user_profile_update",
+        user_id=user.id,
+        username=user.username,
+    )
+
+    if user.id is None:
+        raise ValueError("Authenticated user must have an ID")
+
+    updated_user = await user_service.update_user(user.id, user_update)
+    return UserResponse.model_validate(updated_user)
+
+
+@router.get(
     "/{user_id}",
     dependencies=[
         Security(auth_service.require_roles(UserRole.ADMIN), scopes=[UserRole.ADMIN])
@@ -214,105 +316,3 @@ async def delete_user(
         user_service: Injected user service dependency.
     """
     await user_service.delete_user(user_id)
-
-
-@router.get(
-    "/me",
-    response_model=UserResponse,
-    status_code=status.HTTP_200_OK,
-    summary="Retrieve current authenticated user's information",
-    description="Common pattern for self-service user info retrieval",
-    responses={
-        200: {"description": "User information retrieved successfully"},
-        401: {
-            "model": ErrorResponse,
-            "description": "Authentication required",
-        },
-        500: {
-            "model": InternalServerErrorResponse,
-            "description": "Internal server error",
-        },
-    },
-)
-async def get_user_profile(
-    user: Annotated[User, Security(auth_service.require_user)],
-) -> UserResponse:
-    """Retrieve current authenticated user's information.
-
-    Returns the full user information for the currently authenticated user.
-    Requires valid authentication to access this endpoint.
-
-    Args:
-        user: Currently authenticated user from dependency.
-
-    Returns:
-        UserResponse: Current user's information.
-    """
-    logger.info(
-        "user_profile_access",
-        user_id=user.id,
-        username=user.username,
-    )
-
-    return UserResponse.model_validate(user)
-
-
-@router.patch(
-    "/me",
-    response_model=UserResponse,
-    status_code=status.HTTP_200_OK,
-    summary="Update current user's information",
-    description="RESTful partial update of current user's profile information",
-    responses={
-        200: {"description": "User updated successfully"},
-        400: {
-            "model": ErrorResponse,
-            "description": "Email already in use (UPDATE_USER_EMAIL_ALREADY_EXISTS), Invalid password format (UPDATE_USER_INVALID_PASSWORD)",
-        },
-        401: {
-            "model": ErrorResponse,
-            "description": "Authentication required",
-        },
-        422: {
-            "model": ValidationErrorResponse,
-            "description": "Invalid user data",
-        },
-        500: {
-            "model": InternalServerErrorResponse,
-            "description": "Internal server error",
-        },
-    },
-)
-async def update_user_profile(
-    user_update: UserUpdate,
-    user_service: UserServiceDependency,
-    user: Annotated[User, Security(auth_service.require_user)],
-) -> UserResponse:
-    """Update current user's information.
-
-    Updates only the fields provided in the request body using RESTful partial update.
-    All fields are optional. Username and email must remain unique if updated.
-
-    Args:
-        user_update: User update data with optional fields.
-        user: Currently authenticated user.
-        user_service: User service for database operations.
-
-    Returns:
-        UserResponse: Updated user information.
-
-    Raises:
-        UserAlreadyExistsError: For UPDATE_USER_EMAIL_ALREADY_EXISTS.
-        ValidationError: For UPDATE_USER_INVALID_PASSWORD.
-    """
-    logger.info(
-        "user_profile_update",
-        user_id=user.id,
-        username=user.username,
-    )
-
-    if user.id is None:
-        raise ValueError("Authenticated user must have an ID")
-
-    updated_user = await user_service.update_user(user.id, user_update)
-    return UserResponse.model_validate(updated_user)

@@ -7,7 +7,7 @@
       "Bash(pytest:*)",
       "WebSearch",
       "Bash(tree:*)",
-      "WebFetch(domain:github.com)"
+      "Bash(./run-integration-tests.sh:*)"
     ],
     "deny": [],
     "ask": []
