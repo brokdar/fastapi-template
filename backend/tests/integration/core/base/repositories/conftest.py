@@ -1,15 +1,18 @@
 """Test fixtures for base repository integration tests."""
 
+from collections.abc import AsyncGenerator
 from typing import Any
 from uuid import UUID, uuid4
 
 import pytest
+from sqlalchemy import UniqueConstraint
 from sqlalchemy.ext.asyncio import AsyncEngine
-from sqlmodel import Field, SQLModel
+from sqlmodel import Field
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.base.models import IntModel, UUIDModel
 from app.core.base.repositories.base import BaseRepository
+from app.core.base.repositories.bulk import BulkOperationsMixin
 
 
 class ProductModel(IntModel, table=True):
@@ -18,7 +21,7 @@ class ProductModel(IntModel, table=True):
     __tablename__ = "test_products"
     __table_args__ = {"extend_existing": True}
 
-    name: str = Field(index=True)
+    name: str
     price: float
     category: str | None = Field(default=None)
     in_stock: bool = Field(default=True)
@@ -31,7 +34,7 @@ class ArticleModel(UUIDModel, table=True):
     __table_args__ = {"extend_existing": True}
 
     id: UUID | None = Field(default_factory=uuid4, primary_key=True)
-    title: str = Field(index=True)
+    title: str = Field(unique=True)
     content: str
     author: str | None = Field(default=None)
     published: bool = Field(default=False)
@@ -41,9 +44,12 @@ class CustomerModel(IntModel, table=True):
     """Test model with unique constraint for integrity testing."""
 
     __tablename__ = "test_customers"
-    __table_args__ = {"extend_existing": True}
+    __table_args__ = (
+        UniqueConstraint("email", "username", name="uq_customer_email_username"),
+        {"extend_existing": True},
+    )
 
-    email: str = Field(unique=True, index=True)
+    email: str = Field(unique=True)
     username: str = Field(unique=True)
     full_name: str
 
@@ -59,11 +65,52 @@ class OrderModel(IntModel, table=True):
     status: str = Field(default="pending")
 
 
-@pytest.fixture(scope="session", autouse=True)
-async def setup_test_tables(test_engine: AsyncEngine) -> None:
-    """Create test tables once before all tests."""
+class IntRepositoryWithBulk(
+    BaseRepository[ProductModel, int], BulkOperationsMixin[ProductModel, int]
+):
+    """Repository combining BaseRepository with BulkOperationsMixin for int IDs."""
+
+
+class UUIDRepositoryWithBulk(
+    BaseRepository[ArticleModel, UUID], BulkOperationsMixin[ArticleModel, UUID]
+):
+    """Repository combining BaseRepository with BulkOperationsMixin for UUID IDs."""
+
+
+class CustomerRepositoryWithBulk(
+    BaseRepository[CustomerModel, int], BulkOperationsMixin[CustomerModel, int]
+):
+    """Repository with bulk operations for CustomerModel with unique constraints."""
+
+
+@pytest.fixture(autouse=True)
+async def cleanup_test_tables(
+    test_engine: AsyncEngine,
+) -> AsyncGenerator[None, None]:
+    """Drop test tables after each test to prevent schema conflicts."""
+    yield
+
     async with test_engine.begin() as conn:
-        await conn.run_sync(SQLModel.metadata.create_all, checkfirst=True)
+        await conn.run_sync(
+            lambda sync_conn: OrderModel.metadata.tables[OrderModel.__tablename__].drop(
+                sync_conn, checkfirst=True
+            )
+        )
+        await conn.run_sync(
+            lambda sync_conn: CustomerModel.metadata.tables[
+                CustomerModel.__tablename__
+            ].drop(sync_conn, checkfirst=True)
+        )
+        await conn.run_sync(
+            lambda sync_conn: ArticleModel.metadata.tables[
+                ArticleModel.__tablename__
+            ].drop(sync_conn, checkfirst=True)
+        )
+        await conn.run_sync(
+            lambda sync_conn: ProductModel.metadata.tables[
+                ProductModel.__tablename__
+            ].drop(sync_conn, checkfirst=True)
+        )
 
 
 @pytest.fixture
@@ -96,6 +143,30 @@ async def order_repository(
 ) -> BaseRepository[OrderModel, int]:
     """Provide BaseRepository for OrderModel."""
     return BaseRepository[OrderModel, int](test_session, OrderModel)
+
+
+@pytest.fixture
+async def int_bulk_repository(
+    test_session: AsyncSession,
+) -> IntRepositoryWithBulk:
+    """Provide repository with bulk operations for ProductModel."""
+    return IntRepositoryWithBulk(test_session, ProductModel)
+
+
+@pytest.fixture
+async def uuid_bulk_repository(
+    test_session: AsyncSession,
+) -> UUIDRepositoryWithBulk:
+    """Provide repository with bulk operations for ArticleModel."""
+    return UUIDRepositoryWithBulk(test_session, ArticleModel)
+
+
+@pytest.fixture
+async def customer_bulk_repository(
+    test_session: AsyncSession,
+) -> CustomerRepositoryWithBulk:
+    """Provide repository with bulk operations for CustomerModel."""
+    return CustomerRepositoryWithBulk(test_session, CustomerModel)
 
 
 @pytest.fixture

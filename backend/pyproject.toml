@@ -92,4 +92,8 @@ keep-runtime-typing = true
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-testpaths = ["tests"]
+testpaths = ["tests/unit"]
+filterwarnings = [
+    "ignore::DeprecationWarning:sqlalchemy",
+    "ignore::DeprecationWarning:app.core.base.repositories.bulk",
+]

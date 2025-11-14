@@ -1,8 +1,13 @@
 """Bulk operations mixin for repository pattern.
 
-This module provides a BulkOperationsMixin class that can be used by repositories
-that require bulk operations. It leverages SQLAlchemy 2.0's modern bulk operations
-for optimal performance on PostgreSQL.
+Provides bulk_create, bulk_delete, and bulk_upsert operations optimized for PostgreSQL.
+
+Performance: Uses RETURNING + populate_existing for batch refresh (2 queries vs N+1).
+For 50 items: 50x fewer queries compared to individual refresh() calls.
+
+References:
+    https://docs.sqlalchemy.org/en/20/orm/queryguide/api.html (populate_existing)
+    https://github.com/sqlalchemy/sqlalchemy/discussions/11488 (bulk operations)
 """
 
 from __future__ import annotations
@@ -12,7 +17,7 @@ from uuid import UUID
 
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.dialects.postgresql.dml import Insert as PostgreSQLInsert
-from sqlmodel import delete, update
+from sqlmodel import delete, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.base.models import BaseModel
@@ -23,7 +28,7 @@ from .exceptions import handle_repository_errors
 class BulkOperationsMixin[T: BaseModel[Any], ID: int | UUID]:
     """Mixin class providing bulk operations for repository classes.
 
-    This mixin adds bulk create, update, delete, and upsert operations
+    This mixin adds bulk_create, bulk_delete, and bulk_upsert operations
     to any repository class that includes it. All operations are transactional
     and will rollback on failure.
 
@@ -53,6 +58,10 @@ class BulkOperationsMixin[T: BaseModel[Any], ID: int | UUID]:
     async def bulk_create(self, items: list[T]) -> list[T]:
         """Create multiple model instances in a single operation.
 
+        Uses PostgreSQL's RETURNING clause to fetch generated IDs in a single
+        INSERT statement, then batch refreshes all objects with a single SELECT
+        query using populate_existing for optimal performance.
+
         Args:
             items: List of model instances to create
 
@@ -69,46 +78,26 @@ class BulkOperationsMixin[T: BaseModel[Any], ID: int | UUID]:
 
         item_dicts = [self._prepare_item_dict(item) for item in items]
 
-        # Use modern SQLAlchemy 2.0 bulk insert with RETURNING
-        stmt = insert(self.model_class).returning(self.model_class)
-        result = await self._session.scalars(stmt, item_dicts)
+        stmt = insert(self.model_class).values(item_dicts).returning(self.model_class)
+        result = await self._session.scalars(stmt)
 
         created_items = list(result.all())
         await self._session.commit()
 
+        if created_items:
+            # Batch refresh: 1 query instead of N refresh() calls
+            # populate_existing updates objects in session's identity map
+            id_field = self.model_class.id
+            if id_field is not None:
+                refresh_stmt = (
+                    select(self.model_class)
+                    .where(id_field.in_([item.id for item in created_items]))
+                    .execution_options(populate_existing=True)
+                )
+                # execute() required for execution_options (populate_existing)
+                await self._session.execute(refresh_stmt)
+
         return created_items
-
-    @handle_repository_errors()
-    async def bulk_update(self, items: list[T]) -> list[T]:
-        """Update multiple model instances by their primary keys.
-
-        Args:
-            items: List of model instances to update (must have IDs set)
-
-        Returns:
-            List of updated model instances
-
-        Raises:
-            RepositoryIntegrityError: If integrity constraints are violated
-            RepositoryOperationError: If database operation fails
-            RepositoryConnectionError: If database connection fails
-        """
-        if not items:
-            return []
-
-        update_dicts = []
-        for item in items:
-            if item.id is None:
-                msg = f"Cannot update {self.model_class.__name__} without ID"
-                raise ValueError(msg)
-            update_dicts.append(item.model_dump())
-
-        stmt = update(self.model_class).returning(self.model_class)
-        result = await self._session.scalars(stmt, update_dicts)
-        updated_items = list(result.all())
-        await self._session.commit()
-
-        return updated_items
 
     @handle_repository_errors()
     async def bulk_delete(self, ids: list[ID]) -> None:
@@ -128,6 +117,7 @@ class BulkOperationsMixin[T: BaseModel[Any], ID: int | UUID]:
         id_field = self.model_class.id
         if id_field is not None:
             stmt = delete(self.model_class).where(id_field.in_(ids))
+            # execute() appropriate for DELETE (no scalars returned)
             await self._session.execute(stmt)
 
         await self._session.commit()
@@ -140,6 +130,10 @@ class BulkOperationsMixin[T: BaseModel[Any], ID: int | UUID]:
         update_columns: list[str] | None = None,
     ) -> list[T]:
         """Insert or update multiple model instances using PostgreSQL's ON CONFLICT.
+
+        Uses PostgreSQL's RETURNING clause to fetch the final state in a single
+        statement, then batch refreshes all objects with a single SELECT query
+        using populate_existing for optimal performance.
 
         Args:
             items: List of model instances to upsert
@@ -160,7 +154,8 @@ class BulkOperationsMixin[T: BaseModel[Any], ID: int | UUID]:
         item_dicts = [self._prepare_item_dict(item) for item in items]
 
         pg_stmt = cast(
-            PostgreSQLInsert, insert(self.model_class).returning(self.model_class)
+            PostgreSQLInsert,
+            insert(self.model_class).values(item_dicts).returning(self.model_class),
         )
 
         if update_columns is None:
@@ -182,9 +177,21 @@ class BulkOperationsMixin[T: BaseModel[Any], ID: int | UUID]:
             set_=update_dict,
         )
 
-        result = await self._session.scalars(upsert_stmt, item_dicts)
+        result = await self._session.scalars(upsert_stmt)
 
         upserted_items = list(result.all())
         await self._session.commit()
+
+        if upserted_items:
+            # Batch refresh: critical for upserts to update existing objects in identity map
+            id_field = self.model_class.id
+            if id_field is not None:
+                refresh_stmt = (
+                    select(self.model_class)
+                    .where(id_field.in_([item.id for item in upserted_items]))
+                    .execution_options(populate_existing=True)
+                )
+                # execute() required for execution_options (populate_existing)
+                await self._session.execute(refresh_stmt)
 
         return upserted_items

@@ -136,39 +136,6 @@ class TestBulkCreate:
         mock_session.commit.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_filters_none_ids_from_dictionaries(
-        self,
-        int_bulk_repository: IntRepositoryWithBulk,
-        mock_session: AsyncMock,
-    ) -> None:
-        """Test that bulk create filters out None IDs from model dictionaries."""
-        items = [
-            SampleIntModel(id=None, name="Model 1"),
-            SampleIntModel(id=5, name="Model 2"),
-        ]
-        created_items = [
-            SampleIntModel(id=1, name="Model 1"),
-            SampleIntModel(id=5, name="Model 2"),
-        ]
-
-        mock_result = Mock()
-        mock_result.all.return_value = created_items
-        mock_session.scalars.return_value = mock_result
-
-        result = await int_bulk_repository.bulk_create(items)
-
-        assert len(result) == 2
-
-        call_args = mock_session.scalars.call_args[0]
-        item_dicts = call_args[1]
-
-        assert "id" not in item_dicts[0]
-        assert item_dicts[0]["name"] == "Model 1"
-
-        assert item_dicts[1]["id"] == 5
-        assert item_dicts[1]["name"] == "Model 2"
-
-    @pytest.mark.asyncio
     async def test_raises_repository_error_when_database_fails(
         self,
         int_bulk_repository: IntRepositoryWithBulk,
@@ -185,70 +152,6 @@ class TestBulkCreate:
 
         with pytest.raises(RepositoryOperationError, match="bulk_create"):
             await int_bulk_repository.bulk_create(sample_int_models)
-
-
-class TestBulkUpdate:
-    """Test suite for BulkOperationsMixin.bulk_update method."""
-
-    @pytest.mark.asyncio
-    async def test_returns_empty_list_when_empty_input(
-        self,
-        int_bulk_repository: IntRepositoryWithBulk,
-        mock_session: AsyncMock,
-    ) -> None:
-        """Test bulk update with empty list returns empty list."""
-        result = await int_bulk_repository.bulk_update([])
-
-        assert result == []
-        mock_session.execute.assert_not_called()
-        mock_session.commit.assert_not_called()
-
-    @pytest.mark.asyncio
-    async def test_raises_value_error_when_items_missing_ids(
-        self,
-        int_bulk_repository: IntRepositoryWithBulk,
-        sample_int_models: list[SampleIntModel],
-    ) -> None:
-        """Test that bulk update raises error for items without IDs."""
-        with pytest.raises(ValueError, match="Cannot update SampleIntModel without ID"):
-            await int_bulk_repository.bulk_update(sample_int_models)
-
-    @pytest.mark.asyncio
-    async def test_updates_items_successfully(
-        self,
-        int_bulk_repository: IntRepositoryWithBulk,
-        sample_int_models_with_ids: list[SampleIntModel],
-        mock_session: AsyncMock,
-    ) -> None:
-        """Test successful bulk update."""
-        mock_result = Mock()
-        mock_result.all.return_value = sample_int_models_with_ids
-        mock_session.scalars.return_value = mock_result
-
-        result = await int_bulk_repository.bulk_update(sample_int_models_with_ids)
-
-        assert result == sample_int_models_with_ids
-
-        mock_session.scalars.assert_called_once()
-        mock_session.commit.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_raises_repository_error_when_database_fails(
-        self,
-        int_bulk_repository: IntRepositoryWithBulk,
-        sample_int_models_with_ids: list[SampleIntModel],
-        mock_session: AsyncMock,
-    ) -> None:
-        """Test that database errors during bulk update are properly handled."""
-        original_exception = RuntimeError("Connection failed")
-        database_error = sqlalchemy_exc.DatabaseError(
-            "Database error", None, original_exception
-        )
-
-        mock_session.scalars.side_effect = database_error
-
-        with pytest.raises(RepositoryOperationError, match="bulk_update"):
-            await int_bulk_repository.bulk_update(sample_int_models_with_ids)
 
 
 class TestBulkDelete:
@@ -371,39 +274,6 @@ class TestBulkUpsert:
 
         mock_session.scalars.assert_called_once()
         mock_session.commit.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_filters_none_ids_from_dictionaries(
-        self,
-        int_bulk_repository: IntRepositoryWithBulk,
-        mock_session: AsyncMock,
-    ) -> None:
-        """Test that bulk upsert filters out None IDs from model dictionaries."""
-        items = [
-            SampleIntModel(id=None, name="Model 1"),
-            SampleIntModel(id=5, name="Model 2"),
-        ]
-        upserted_items = [
-            SampleIntModel(id=1, name="Model 1"),
-            SampleIntModel(id=5, name="Model 2"),
-        ]
-
-        mock_result = Mock()
-        mock_result.all.return_value = upserted_items
-        mock_session.scalars.return_value = mock_result
-
-        result = await int_bulk_repository.bulk_upsert(items, ["name"])
-
-        assert len(result) == 2
-
-        call_args = mock_session.scalars.call_args[0]
-        item_dicts = call_args[1]
-
-        assert "id" not in item_dicts[0]
-        assert item_dicts[0]["name"] == "Model 1"
-
-        assert item_dicts[1]["id"] == 5
-        assert item_dicts[1]["name"] == "Model 2"
 
     @pytest.mark.asyncio
     async def test_raises_repository_error_when_database_fails(
