@@ -40,7 +40,8 @@ coverage.xml
 
 # Documentation
 docs/
-*.md
+*.md           # Exclude all markdown files
+!README.md     # But include README.md (needed for pyproject.toml)
 CLAUDE.md
 
 # Development files

@@ -7,7 +7,8 @@
       "Bash(pytest:*)",
       "WebSearch",
       "Bash(tree:*)",
-      "Bash(./run-integration-tests.sh:*)"
+      "Bash(./run-integration-tests.sh:*)",
+      "Bash(./scripts/run-integration-tests.sh:*)"
     ],
     "deny": [],
     "ask": []
