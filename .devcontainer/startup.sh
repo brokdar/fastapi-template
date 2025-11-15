@@ -6,8 +6,6 @@ echo "🚀 Initializing development environment..."
 echo "🔧 Installing dependencies..."
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
-npm i -g @anthropic-ai/claude-code
-
 echo "📦 Setting up uv..."
 cd backend
 uv sync

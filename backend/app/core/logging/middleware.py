@@ -123,7 +123,6 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         request_id = self._generate_request_id()
         request.state.request_id = request_id
 
-        session = getattr(request.state, "session", None)
         log = self.logger.bind(
             request_id=request_id,
             method=request.method,
@@ -131,9 +130,6 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
             user_agent=request.headers.get("user-agent"),
             client_ip=request.client.host if request.client else None,
         )
-
-        if session:
-            log = log.bind(session=session)
 
         if not self._should_log_request(request.url.path):
             response = await call_next(request)
@@ -150,6 +146,16 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
                 "duration_ms": _calculate_duration_ms(start_time),
             }
 
+            user = getattr(request.state, "user", None)
+            if user:
+                log_data.update(
+                    {
+                        "user_id": user.id,
+                        "username": user.username,
+                        "user_role": user.role.value,
+                    }
+                )
+
             log.info("Request completed", **log_data)
 
         except Exception as exc:
@@ -158,6 +164,16 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
                 "error_type": type(exc).__name__,
                 "duration_ms": _calculate_duration_ms(start_time),
             }
+
+            user = getattr(request.state, "user", None)
+            if user:
+                error_log_data.update(
+                    {
+                        "user_id": user.id,
+                        "username": user.username,
+                        "user_role": user.role.value,
+                    }
+                )
 
             log.error("Request failed", **error_log_data)
             raise

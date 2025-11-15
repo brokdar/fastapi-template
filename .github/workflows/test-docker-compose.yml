@@ -1,13 +1,8 @@
 name: Test Docker Compose
 
 on:
-  push:
-    branches:
-      - main
   pull_request:
-    types:
-      - opened
-      - synchronize
+    types: [opened, synchronize, reopened]
 
 jobs:
   test-docker-compose:
@@ -46,7 +41,3 @@ jobs:
       - name: Show service logs on failure
         if: failure()
         run: docker compose logs
-
-      - name: Clean up
-        if: always()
-        run: docker compose down -v --remove-orphans

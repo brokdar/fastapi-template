@@ -155,7 +155,9 @@ class AuthService[ID: (int, UUID)]:
             user_service: UserService[ID],
             **kwargs: Any,
         ) -> User:
-            return await self._authenticate(request, user_service)
+            user = await self._authenticate(request, user_service)
+            request.state.user = user
+            return user
 
         return dependency
 
@@ -185,6 +187,8 @@ class AuthService[ID: (int, UUID)]:
             **kwargs: Any,
         ) -> User:
             user = await self._authenticate(request, user_service)
+            request.state.user = user
+
             if user.role not in roles:
                 logger.warning(
                     "User lacks required role",

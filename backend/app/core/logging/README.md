@@ -159,7 +159,10 @@ FastAPI middleware for request tracking:
 
 - Generates unique request IDs for each request (format: `req_` + 6-character hex)
 - Logs request start/completion/failure with timing
-- Includes session context when available (extracted from `request.state.session`)
+- Includes user context on response logs when authentication is successful (extracted from `request.state.user`)
+- Request logs contain no user information (authentication hasn't occurred yet)
+- Response logs include user_id, username, and user_role for all authenticated requests (even if authorization fails)
+- Security auditing: Failed authorization attempts are logged with full user context
 - Configurable route exclusion with exact paths and wildcard patterns (defaults to `LoggingConstants.COMMON_EXCLUDED_ROUTES`)
 - Configurable logger name (default: "request")
 
@@ -178,22 +181,26 @@ Helper functions for application logging:
 sequenceDiagram
     participant Client
     participant Middleware as RequestLoggingMiddleware
+    participant AuthDep as Auth Dependency
     participant Handler as Request Handler
     participant Logger as structlog
     participant Output as Log Output
 
     Client->>Middleware: HTTP Request
     Middleware->>Middleware: Generate Request ID
-    Middleware->>Logger: Log "Request started"
+    Middleware->>Logger: Log "Request started" (no user info)
     Logger->>Output: [timestamp] [request] INFO Request started request_id=req_a1b2c3
 
-    Middleware->>Handler: Forward Request
+    Middleware->>AuthDep: Authenticate User
+    AuthDep->>AuthDep: Validate JWT & Store in request.state.user
+    AuthDep->>Handler: Forward Request (authenticated)
     Handler->>Logger: Log business events
     Logger->>Output: [timestamp] [users] INFO User fetched request_id=req_a1b2c3
 
     Handler->>Middleware: Response
-    Middleware->>Logger: Log "Request completed"
-    Logger->>Output: [timestamp] [request] INFO Request completed request_id=req_a1b2c3 status_code=200 duration_ms=45.2
+    Middleware->>Middleware: Extract user from request.state
+    Middleware->>Logger: Log "Request completed" (with user info)
+    Logger->>Output: [timestamp] [request] INFO Request completed request_id=req_a1b2c3 status_code=200 duration_ms=45.2 user_id=42 username=john.doe user_role=USER
 
     Middleware->>Client: HTTP Response (with X-Request-ID header)
 ```
@@ -231,12 +238,27 @@ All logs follow a consistent format with ordered columns:
 4. **Message** (main event description)
 5. **Additional Fields** (key=value pairs)
 
-Example output:
+Example output (authenticated request):
 
 ```logs
 2024-01-15T10:30:45.123456Z [request] INFO Request started request_id=req_a1b2c3 method=GET path=/users/123
 2024-01-15T10:30:45.145678Z [users] INFO User fetched request_id=req_a1b2c3 user_id=123 operation=fetch
-2024-01-15T10:30:45.167890Z [request] INFO Request completed request_id=req_a1b2c3 status_code=200 duration_ms=45.2
+2024-01-15T10:30:45.167890Z [request] INFO Request completed request_id=req_a1b2c3 status_code=200 duration_ms=45.2 user_id=42 username=john.doe user_role=USER
+```
+
+Example output (unauthenticated request):
+
+```logs
+2024-01-15T10:31:12.123456Z [request] INFO Request started request_id=req_x4y5z6 method=GET path=/health
+2024-01-15T10:31:12.128901Z [request] INFO Request completed request_id=req_x4y5z6 status_code=200 duration_ms=5.4
+```
+
+Example output (authorization failure - security auditing):
+
+```logs
+2024-01-15T10:32:45.123456Z [request] INFO Request started request_id=req_p7q8r9 method=GET path=/admin/users
+2024-01-15T10:32:45.145678Z [auth] WARNING User lacks required role user_id=42 user_role=USER required_roles=['ADMIN']
+2024-01-15T10:32:45.148901Z [request] ERROR Request failed request_id=req_p7q8r9 error="User role 'USER' not authorized. Required roles: ADMIN" error_type=AuthorizationError duration_ms=25.4 user_id=42 username=john.doe user_role=USER
 ```
 
 ## Configuration
@@ -316,7 +338,7 @@ The logging system integrates with FastAPI through:
 1. **Application Startup**: `configure_logging()` called in `main.py` lifespan with settings from environment
 2. **Middleware Stack**: `RequestLoggingMiddleware` added to app
 3. **Request Handlers**: Using `get_request_logger()` in endpoints
-4. **Session Integration**: Automatic username logging when session middleware provides it
+4. **Authentication Integration**: Automatic user logging (user_id, username, role) on response when authentication is successful
 
 Example from `main.py`:
 

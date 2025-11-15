@@ -23,9 +23,6 @@
     "ruff.importStrategy": "fromEnvironment",
     "mypy-type-checker.importStrategy": "fromEnvironment",
     "terminal.integrated.defaultProfile.linux": "bash",
-    "yaml.schemas": {
-        "https://www.schemastore.org/yamllint.json": "file:///d%3A/Projekte/Python/fastapi-supabase-template/.pre-commit-config.yaml"
-    },
     "terminal.integrated.profiles.linux": {
         "backend": {
             "path": "bash",
