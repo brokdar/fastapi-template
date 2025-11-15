@@ -1,0 +1,40 @@
+name: Test Docker Compose
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  test-docker-compose:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Create test environment file
+        run: |
+          cp .env.example .env
+          # Override with secure test values
+          echo "POSTGRES_PASSWORD=test_password_$(openssl rand -hex 8)" >> .env
+          echo "JWT_SECRET_KEY=$(openssl rand -base64 32)" >> .env
+          echo "SUPER_USER_PASSWORD=test_admin_$(openssl rand -hex 8)" >> .env
+
+      - name: Build Docker Compose services
+        run: docker compose build
+
+      - name: Start services and wait for health
+        run: docker compose up -d --wait api
+
+      - name: Test API health endpoint
+        run: |
+          # Extract API_PATH from .env file
+          API_PATH=$(grep "^API_PATH=" .env | cut -d '=' -f2)
+          echo "Testing health endpoint at: http://localhost:8000${API_PATH}/health"
+          curl -f http://localhost:8000${API_PATH}/health
+
+      - name: Test OpenAPI docs availability
+        run: curl -f http://localhost:8000/docs
+
+      - name: Show service logs on failure
+        if: failure()
+        run: docker compose logs

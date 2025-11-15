@@ -1,0 +1,86 @@
+services:
+  db:
+    image: postgres:15
+    restart: always
+    expose:
+      - 5432
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      retries: 5
+      start_period: 30s
+      timeout: 10s
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD?Variable not set}
+      - POSTGRES_USER=${POSTGRES_USER?Variable not set}
+      - POSTGRES_DB=${POSTGRES_DB?Variable not set}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  pre-start:
+    command: sh scripts/prestart.sh
+    env_file:
+      - .env
+    environment:
+      - DATABASE__SERVER=${POSTGRES_HOST}
+      - DATABASE__PORT=${POSTGRES_PORT}
+      - DATABASE__USER=${POSTGRES_USER}
+      - DATABASE__PASSWORD=${POSTGRES_PASSWORD}
+      - DATABASE__DB=${POSTGRES_DB}
+      - SUPER_USER__NAME=${SUPER_USER_NAME}
+      - SUPER_USER__EMAIL=${SUPER_USER_EMAIL}
+      - SUPER_USER__PASSWORD=${SUPER_USER_PASSWORD}
+      - LOG__LEVEL=${LOG_LEVEL:-INFO}
+      - LOG__FILE_PATH=${LOG_FILE_PATH:-}
+      - LOG__DISABLE_COLORS=${LOG_DISABLE_COLORS:-false}
+      - API_PATH=${API_PATH}
+    depends_on:
+      db:
+        condition: service_healthy
+        restart: true
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+
+  api:
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000${API_PATH}/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    env_file:
+      - .env
+    environment:
+      - DATABASE__SERVER=${POSTGRES_HOST}
+      - DATABASE__PORT=${POSTGRES_PORT}
+      - DATABASE__USER=${POSTGRES_USER}
+      - DATABASE__PASSWORD=${POSTGRES_PASSWORD}
+      - DATABASE__DB=${POSTGRES_DB}
+      - SUPER_USER__NAME=${SUPER_USER_NAME}
+      - SUPER_USER__EMAIL=${SUPER_USER_EMAIL}
+      - SUPER_USER__PASSWORD=${SUPER_USER_PASSWORD}
+      - AUTH__JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - AUTH__JWT_ALGORITHM=${JWT_ALGORITHM:-HS256}
+      - AUTH__JWT_ACCESS_TOKEN_EXPIRE_MINUTES=${JWT_ACCESS_TOKEN_EXPIRE_MINUTES:-15}
+      - AUTH__JWT_REFRESH_TOKEN_EXPIRE_DAYS=${JWT_REFRESH_TOKEN_EXPIRE_DAYS:-7}
+      - LOG__LEVEL=${LOG_LEVEL:-INFO}
+      - LOG__FILE_PATH=${LOG_FILE_PATH:-}
+      - LOG__DISABLE_COLORS=${LOG_DISABLE_COLORS:-false}
+      - API_PATH=${API_PATH}
+    depends_on:
+      db:
+        condition: service_healthy
+        restart: true
+      pre-start:
+        condition: service_completed_successfully
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+
+volumes:
+  postgres-data:

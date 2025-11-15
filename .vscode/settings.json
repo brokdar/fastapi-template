@@ -1,0 +1,38 @@
+{
+    "git.autorefresh": true,
+    "git.autofetch": true,
+    "editor.codeActionsOnSave": {
+        "source.fixAll": "always",
+        "source.organizeImports": "always"
+    },
+    "editor.formatOnSave": true,
+    "editor.formatOnPaste": true,
+    "python.analysis.include": [
+        "backend"
+    ],
+    "[python]": {
+        "editor.defaultFormatter": "charliermarsh.ruff"
+    },
+    "python.defaultInterpreterPath": "${workspaceFolder}/backend/.venv",
+    "python.testing.pytestEnabled": true,
+    "python.testing.pytestArgs": [
+        "backend/tests"
+    ],
+    "python.testing.unittestEnabled": false,
+    "scm.defaultViewMode": "tree",
+    "ruff.importStrategy": "fromEnvironment",
+    "mypy-type-checker.importStrategy": "fromEnvironment",
+    "terminal.integrated.defaultProfile.linux": "bash",
+    "terminal.integrated.profiles.linux": {
+        "backend": {
+            "path": "bash",
+            "icon": "server",
+            "color": "terminal.ansiGreen",
+            "overrideName": true,
+            "args": [
+                "-c",
+                "cd ${workspaceFolder}/backend && source .venv/bin/activate && bash"
+            ]
+        }
+    }
+}
