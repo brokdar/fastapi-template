@@ -11,7 +11,7 @@
         "backend"
     ],
     "[python]": {
-        "editor.defaultFormatter": "charliermarsh.ruff",
+        "editor.defaultFormatter": "charliermarsh.ruff"
     },
     "python.defaultInterpreterPath": "${workspaceFolder}/backend/.venv",
     "python.testing.pytestEnabled": true,
@@ -34,5 +34,5 @@
                 "cd ${workspaceFolder}/backend && source .venv/bin/activate && bash"
             ]
         }
-    },
+    }
 }
