@@ -22,9 +22,6 @@ jobs:
       - name: Build Docker Compose services
         run: docker compose build
 
-      - name: Clean up existing containers
-        run: docker compose down -v --remove-orphans
-
       - name: Start services and wait for health
         run: docker compose up -d --wait api
 
