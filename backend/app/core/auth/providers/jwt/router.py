@@ -93,7 +93,7 @@ def create_jwt_router[ID: (int, UUID)](provider: JWTAuthProvider[ID]) -> APIRout
         token_response = provider.create_token_response(str(user.id))
 
         logger.info(
-            "login_successful",
+            "user_logged_in",
             user_id=user.id,
             username=user.username,
         )
@@ -146,7 +146,7 @@ def create_jwt_router[ID: (int, UUID)](provider: JWTAuthProvider[ID]) -> APIRout
         token_response = provider.create_token_response(str(user.id))
 
         logger.info(
-            "token_refresh_successful",
+            "token_refreshed",
             user_id=user.id,
             username=user.username,
         )

@@ -1,6 +1,7 @@
 """Authentication orchestration service managing multiple providers."""
 
 from collections.abc import Awaitable, Callable, Sequence
+from functools import cached_property
 from inspect import Parameter, Signature
 from typing import Any, cast
 from uuid import UUID
@@ -49,7 +50,8 @@ class AuthService[ID: (int, UUID)]:
         self.get_user_service: UserServiceDependency[ID] = get_user_service
         self._providers: Sequence[AuthProvider[ID]] = providers
 
-    def _get_dependency_signature(self) -> Signature:
+    @cached_property
+    def _dependency_signature(self) -> Signature:
         """Generate dynamic signature with security schemes from all providers.
 
         Creates a function signature that includes Depends(scheme) parameters for
@@ -63,6 +65,8 @@ class AuthService[ID: (int, UUID)]:
 
         Parameter names are unique even if multiple providers have the same name
         (e.g., token_jwt, token_jwt_1, token_jwt_2).
+
+        Cached after first access to avoid regenerating on every property/method call.
 
         Returns:
             Signature with all provider security schemes as dependencies.
@@ -112,11 +116,11 @@ class AuthService[ID: (int, UUID)]:
     ) -> User:
         for provider in self._providers:
             if provider.can_authenticate(request):
-                logger.debug("Attempting authentication", provider=provider.name)
+                logger.debug("authentication_attempted", provider=provider.name)
                 user: User | None = await provider.authenticate(request, user_service)
                 if user:
                     logger.info(
-                        "User authenticated successfully",
+                        "user_authenticated",
                         provider=provider.name,
                         user_id=user.id,
                         username=user.username,
@@ -124,7 +128,8 @@ class AuthService[ID: (int, UUID)]:
                     return user
 
         logger.warning(
-            "Authentication failed for all providers",
+            "authentication_failed",
+            reason="all_providers_failed",
             providers_tried=[p.name for p in self._providers],
         )
         raise InvalidTokenError("Authentication failed")
@@ -147,7 +152,7 @@ class AuthService[ID: (int, UUID)]:
         Raises:
             InvalidTokenError: If authentication fails.
         """
-        signature = self._get_dependency_signature()
+        signature = self._dependency_signature
 
         @typed_signature(signature)
         async def dependency(
@@ -178,7 +183,7 @@ class AuthService[ID: (int, UUID)]:
             InvalidTokenError: If authentication fails.
             AuthorizationError: If user doesn't have required role.
         """
-        signature = self._get_dependency_signature()
+        signature = self._dependency_signature
 
         @typed_signature(signature)
         async def dependency(
@@ -191,7 +196,8 @@ class AuthService[ID: (int, UUID)]:
 
             if user.role not in roles:
                 logger.warning(
-                    "User lacks required role",
+                    "authorization_failed",
+                    reason="insufficient_role",
                     user_id=user.id,
                     user_role=user.role,
                     required_roles=[r.value for r in roles],
@@ -218,6 +224,6 @@ class AuthService[ID: (int, UUID)]:
             router = provider.get_router()
             app.include_router(router, prefix="/auth", tags=["auth"])
             logger.debug(
-                "Provider router registered",
+                "provider_router_registered",
                 provider=provider.name,
             )

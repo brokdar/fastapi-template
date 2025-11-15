@@ -12,7 +12,6 @@ from fastapi.openapi.models import OAuth2
 from fastapi.security import OAuth2PasswordBearer
 
 from app.core.auth.exceptions import (
-    InactiveUserError,
     InvalidTokenError,
     TokenExpiredError,
 )
@@ -446,37 +445,39 @@ class TestAuthenticate:
             await jwt_provider.authenticate(request, mock_user_service)
 
     @pytest.mark.asyncio
-    async def test_raises_invalid_token_error_when_user_not_found(
+    async def test_returns_none_when_user_not_found(
         self,
         jwt_provider: JWTAuthProvider[int],
         mock_user_service: AsyncMock,
     ) -> None:
-        """Test InvalidTokenError is raised when user doesn't exist."""
+        """Test authenticate returns None when user doesn't exist."""
         token = jwt_provider.create_access_token("999")
         request = Mock(spec=Request)
         request.headers.get.return_value = f"Bearer {token}"
 
         mock_user_service.get_by_id.side_effect = UserNotFoundError("User not found")
 
-        with pytest.raises(InvalidTokenError, match="Invalid token: user not found"):
-            await jwt_provider.authenticate(request, mock_user_service)
+        result = await jwt_provider.authenticate(request, mock_user_service)
+
+        assert result is None
 
     @pytest.mark.asyncio
-    async def test_raises_inactive_user_error_when_user_inactive(
+    async def test_returns_none_when_user_inactive(
         self,
         jwt_provider: JWTAuthProvider[int],
         mock_user_service: AsyncMock,
         inactive_user: User,
     ) -> None:
-        """Test InactiveUserError is raised when user account is inactive."""
+        """Test authenticate returns None when user account is inactive."""
         token = jwt_provider.create_access_token(str(inactive_user.id))
         request = Mock(spec=Request)
         request.headers.get.return_value = f"Bearer {token}"
 
         mock_user_service.get_by_id.return_value = inactive_user
 
-        with pytest.raises(InactiveUserError):
-            await jwt_provider.authenticate(request, mock_user_service)
+        result = await jwt_provider.authenticate(request, mock_user_service)
+
+        assert result is None
 
     @pytest.mark.asyncio
     async def test_authenticate_with_uuid_user_id(

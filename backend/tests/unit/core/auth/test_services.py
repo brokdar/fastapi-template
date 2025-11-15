@@ -424,7 +424,7 @@ class TestAuthServiceRegisterRoutes:
 
 
 class TestAuthServiceGetDependencySignature:
-    """Test suite for AuthService._get_dependency_signature method."""
+    """Test suite for AuthService._dependency_signature property."""
 
     def test_returns_signature_with_no_providers(
         self,
@@ -436,7 +436,7 @@ class TestAuthServiceGetDependencySignature:
             providers=[],
         )
 
-        sig = auth_service._get_dependency_signature()
+        sig = auth_service._dependency_signature
 
         assert len(sig.parameters) == 2
         assert list(sig.parameters.keys()) == ["request", "user_service"]
@@ -454,7 +454,7 @@ class TestAuthServiceGetDependencySignature:
             providers=[provider],
         )
 
-        sig = auth_service._get_dependency_signature()
+        sig = auth_service._dependency_signature
 
         assert len(sig.parameters) == 3
         assert list(sig.parameters.keys()) == ["request", "token_jwt", "user_service"]
@@ -478,7 +478,7 @@ class TestAuthServiceGetDependencySignature:
             providers=[provider1, provider2, provider3],
         )
 
-        sig = auth_service._get_dependency_signature()
+        sig = auth_service._dependency_signature
 
         assert len(sig.parameters) == 5
         assert list(sig.parameters.keys()) == [
@@ -517,7 +517,7 @@ class TestAuthServiceGetDependencySignature:
             providers=[provider],
         )
 
-        sig = auth_service._get_dependency_signature()
+        sig = auth_service._dependency_signature
 
         assert "token_jwt_bearer" in sig.parameters
         assert sig.parameters["token_jwt_bearer"].annotation == str | None
@@ -541,7 +541,7 @@ class TestAuthServiceGetDependencySignature:
             providers=[provider1, provider2],
         )
 
-        sig = auth_service._get_dependency_signature()
+        sig = auth_service._dependency_signature
 
         assert len(sig.parameters) == 4
         assert list(sig.parameters.keys()) == [
@@ -570,7 +570,7 @@ class TestAuthServiceGetDependencySignature:
             providers=[provider1, provider2, provider3],
         )
 
-        sig = auth_service._get_dependency_signature()
+        sig = auth_service._dependency_signature
 
         assert len(sig.parameters) == 5
         assert list(sig.parameters.keys()) == [
@@ -598,7 +598,7 @@ class TestAuthServiceGetDependencySignature:
             providers=[provider1, provider2, provider3],
         )
 
-        sig = auth_service._get_dependency_signature()
+        sig = auth_service._dependency_signature
 
         assert len(sig.parameters) == 5
         assert list(sig.parameters.keys()) == [
@@ -624,7 +624,7 @@ class TestAuthServiceGetDependencySignature:
             providers=[provider1, provider2, provider3],
         )
 
-        sig = auth_service._get_dependency_signature()
+        sig = auth_service._dependency_signature
 
         assert len(sig.parameters) == 5
         assert list(sig.parameters.keys()) == [
@@ -651,7 +651,7 @@ class TestAuthServiceGetDependencySignature:
             providers=[provider1, provider2, provider3, provider4, provider5],
         )
 
-        sig = auth_service._get_dependency_signature()
+        sig = auth_service._dependency_signature
 
         assert len(sig.parameters) == 7
         assert list(sig.parameters.keys()) == [
@@ -677,7 +677,7 @@ class TestAuthServiceGetDependencySignature:
             providers=[provider1, provider2],
         )
 
-        sig = auth_service._get_dependency_signature()
+        sig = auth_service._dependency_signature
 
         for param in sig.parameters.values():
             assert isinstance(param, Parameter)
@@ -710,7 +710,7 @@ class TestAuthServiceGetDependencySignature:
             providers=[provider1, provider2],
         )
 
-        sig = auth_service._get_dependency_signature()
+        sig = auth_service._dependency_signature
 
         assert sig.parameters["request"].annotation is Request
         assert sig.parameters["token_jwt"].annotation == str | None
@@ -733,7 +733,7 @@ class TestAuthServiceGetDependencySignature:
             providers=[provider],
         )
 
-        sig = auth_service._get_dependency_signature()
+        sig = auth_service._dependency_signature
 
         token_param = sig.parameters["token_jwt"]
         assert type(token_param.default).__name__ == "Depends"

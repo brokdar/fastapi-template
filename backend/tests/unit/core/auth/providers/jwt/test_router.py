@@ -1,5 +1,6 @@
 """Test suite for JWT authentication router."""
 
+from unittest.mock import AsyncMock
 from uuid import UUID
 
 import pytest
@@ -9,6 +10,7 @@ from fastapi.routing import APIRoute
 from app.core.auth.providers.jwt.provider import JWTAuthProvider
 from app.core.auth.providers.jwt.router import create_jwt_router
 from app.core.auth.providers.jwt.schemas import TokenResponse
+from app.domains.users.models import User
 
 
 class TestCreateJWTRouter:
@@ -230,3 +232,393 @@ class TestRouterIntegration:
         route_paths = [route.path for route in app.routes if hasattr(route, "path")]
         assert any("/auth/jwt/login" in path for path in route_paths)
         assert any("/auth/jwt/refresh" in path for path in route_paths)
+
+
+class TestLoginEndpointBehavior:
+    """Test suite for login endpoint behavior with HTTP requests."""
+
+    @pytest.mark.asyncio
+    async def test_authenticates_user_with_valid_credentials(
+        self,
+        jwt_provider: JWTAuthProvider[int],
+        sample_user: User,
+        mock_user_service: AsyncMock,
+    ) -> None:
+        """Test successful login returns TokenResponse."""
+        from fastapi import FastAPI
+        from httpx import ASGITransport, AsyncClient
+
+        from app.core.exceptions.handlers import setup_exception_handlers
+        from app.dependencies import get_user_service
+
+        mock_user_service.get_by_name.return_value = sample_user
+        mock_user_service.verify_password.return_value = True
+
+        router = create_jwt_router(jwt_provider)
+        app = FastAPI()
+        setup_exception_handlers(app)
+        app.include_router(router, prefix="/auth")
+        app.dependency_overrides[get_user_service] = lambda: mock_user_service
+
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                "/auth/jwt/login",
+                data={"username": "testuser", "password": "testpass"},
+            )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert "access_token" in data
+        assert "refresh_token" in data
+        assert data["token_type"] == "bearer"
+        assert "expires_in" in data
+        mock_user_service.get_by_name.assert_called_once_with("testuser")
+        mock_user_service.verify_password.assert_called_once_with(
+            sample_user, "testpass"
+        )
+
+    @pytest.mark.asyncio
+    async def test_raises_invalid_credentials_error_when_user_not_found(
+        self,
+        jwt_provider: JWTAuthProvider[int],
+        mock_user_service: AsyncMock,
+    ) -> None:
+        """Test login fails with InvalidCredentialsError for non-existent user."""
+        from fastapi import FastAPI
+        from httpx import ASGITransport, AsyncClient
+
+        from app.core.exceptions.handlers import setup_exception_handlers
+        from app.dependencies import get_user_service
+        from app.domains.users.exceptions import UserNotFoundError
+
+        mock_user_service.get_by_name.side_effect = UserNotFoundError("User not found")
+
+        router = create_jwt_router(jwt_provider)
+        app = FastAPI()
+        setup_exception_handlers(app)
+        app.include_router(router, prefix="/auth")
+        app.dependency_overrides[get_user_service] = lambda: mock_user_service
+
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                "/auth/jwt/login",
+                data={"username": "nonexistent", "password": "testpass"},
+            )
+
+        assert response.status_code == 401
+        assert "Invalid username or password" in response.json()["error"]["message"]
+
+    @pytest.mark.asyncio
+    async def test_raises_invalid_credentials_error_when_password_incorrect(
+        self,
+        jwt_provider: JWTAuthProvider[int],
+        sample_user: User,
+        mock_user_service: AsyncMock,
+    ) -> None:
+        """Test login fails with InvalidCredentialsError for wrong password."""
+        from fastapi import FastAPI
+        from httpx import ASGITransport, AsyncClient
+
+        from app.core.exceptions.handlers import setup_exception_handlers
+        from app.dependencies import get_user_service
+
+        mock_user_service.get_by_name.return_value = sample_user
+        mock_user_service.verify_password.return_value = False
+
+        router = create_jwt_router(jwt_provider)
+        app = FastAPI()
+        setup_exception_handlers(app)
+        app.include_router(router, prefix="/auth")
+        app.dependency_overrides[get_user_service] = lambda: mock_user_service
+
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                "/auth/jwt/login",
+                data={"username": "testuser", "password": "wrongpass"},
+            )
+
+        assert response.status_code == 401
+        assert "Invalid username or password" in response.json()["error"]["message"]
+
+    @pytest.mark.asyncio
+    async def test_raises_inactive_user_error_when_user_inactive(
+        self,
+        jwt_provider: JWTAuthProvider[int],
+        inactive_user: User,
+        mock_user_service: AsyncMock,
+    ) -> None:
+        """Test login fails with InactiveUserError for inactive account."""
+        from fastapi import FastAPI
+        from httpx import ASGITransport, AsyncClient
+
+        from app.core.exceptions.handlers import setup_exception_handlers
+        from app.dependencies import get_user_service
+
+        mock_user_service.get_by_name.return_value = inactive_user
+        mock_user_service.verify_password.return_value = True
+
+        router = create_jwt_router(jwt_provider)
+        app = FastAPI()
+        setup_exception_handlers(app)
+        app.include_router(router, prefix="/auth")
+        app.dependency_overrides[get_user_service] = lambda: mock_user_service
+
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                "/auth/jwt/login",
+                data={"username": "inactiveuser", "password": "testpass"},
+            )
+
+        assert response.status_code == 403
+        assert "inactive" in response.json()["error"]["message"].lower()
+
+
+class TestRefreshEndpointBehavior:
+    """Test suite for refresh endpoint behavior with HTTP requests."""
+
+    @pytest.mark.asyncio
+    async def test_refreshes_token_with_valid_refresh_token(
+        self,
+        jwt_provider: JWTAuthProvider[int],
+        valid_refresh_token: str,
+        sample_user: User,
+        mock_user_service: AsyncMock,
+    ) -> None:
+        """Test successful token refresh returns new TokenResponse."""
+        from fastapi import FastAPI
+        from httpx import ASGITransport, AsyncClient
+
+        from app.core.exceptions.handlers import setup_exception_handlers
+        from app.dependencies import get_user_service
+
+        mock_user_service.get_by_id.return_value = sample_user
+
+        router = create_jwt_router(jwt_provider)
+        app = FastAPI()
+        setup_exception_handlers(app)
+        app.include_router(router, prefix="/auth")
+        app.dependency_overrides[get_user_service] = lambda: mock_user_service
+
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                "/auth/jwt/refresh",
+                json={"refresh_token": valid_refresh_token},
+            )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert "access_token" in data
+        assert "refresh_token" in data
+        assert data["token_type"] == "bearer"
+        assert "expires_in" in data
+        mock_user_service.parse_id.assert_called_once_with("1")
+        mock_user_service.get_by_id.assert_called_once_with(1)
+
+    @pytest.mark.asyncio
+    async def test_returns_different_tokens_on_refresh(
+        self,
+        jwt_provider: JWTAuthProvider[int],
+        valid_refresh_token: str,
+        sample_user: User,
+        mock_user_service: AsyncMock,
+    ) -> None:
+        """Test token rotation produces both access and refresh tokens."""
+        import asyncio
+
+        from fastapi import FastAPI
+        from httpx import ASGITransport, AsyncClient
+
+        from app.core.exceptions.handlers import setup_exception_handlers
+        from app.dependencies import get_user_service
+
+        mock_user_service.get_by_id.return_value = sample_user
+
+        router = create_jwt_router(jwt_provider)
+        app = FastAPI()
+        setup_exception_handlers(app)
+        app.include_router(router, prefix="/auth")
+        app.dependency_overrides[get_user_service] = lambda: mock_user_service
+
+        await asyncio.sleep(1)
+
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                "/auth/jwt/refresh",
+                json={"refresh_token": valid_refresh_token},
+            )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert "access_token" in data
+        assert "refresh_token" in data
+        assert data["access_token"] != data["refresh_token"]
+        assert data["access_token"] != valid_refresh_token
+
+    @pytest.mark.asyncio
+    async def test_raises_invalid_token_error_when_malformed(
+        self,
+        jwt_provider: JWTAuthProvider[int],
+        malformed_token: str,
+        mock_user_service: AsyncMock,
+    ) -> None:
+        """Test refresh fails with InvalidTokenError for malformed token."""
+        from fastapi import FastAPI
+        from httpx import ASGITransport, AsyncClient
+
+        from app.core.exceptions.handlers import setup_exception_handlers
+        from app.dependencies import get_user_service
+
+        router = create_jwt_router(jwt_provider)
+        app = FastAPI()
+        setup_exception_handlers(app)
+        app.include_router(router, prefix="/auth")
+        app.dependency_overrides[get_user_service] = lambda: mock_user_service
+
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                "/auth/jwt/refresh",
+                json={"refresh_token": malformed_token},
+            )
+
+        assert response.status_code == 401
+
+    @pytest.mark.asyncio
+    async def test_raises_token_expired_error_when_expired(
+        self,
+        jwt_provider: JWTAuthProvider[int],
+        expired_token: str,
+        mock_user_service: AsyncMock,
+    ) -> None:
+        """Test refresh fails with TokenExpiredError for expired token."""
+        from fastapi import FastAPI
+        from httpx import ASGITransport, AsyncClient
+
+        from app.core.exceptions.handlers import setup_exception_handlers
+        from app.dependencies import get_user_service
+
+        router = create_jwt_router(jwt_provider)
+        app = FastAPI()
+        setup_exception_handlers(app)
+        app.include_router(router, prefix="/auth")
+        app.dependency_overrides[get_user_service] = lambda: mock_user_service
+
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                "/auth/jwt/refresh",
+                json={"refresh_token": expired_token},
+            )
+
+        assert response.status_code == 401
+
+    @pytest.mark.asyncio
+    async def test_raises_invalid_token_error_when_wrong_type(
+        self,
+        jwt_provider: JWTAuthProvider[int],
+        valid_access_token: str,
+        mock_user_service: AsyncMock,
+    ) -> None:
+        """Test refresh fails when using access token instead of refresh token."""
+        from fastapi import FastAPI
+        from httpx import ASGITransport, AsyncClient
+
+        from app.core.exceptions.handlers import setup_exception_handlers
+        from app.dependencies import get_user_service
+
+        router = create_jwt_router(jwt_provider)
+        app = FastAPI()
+        setup_exception_handlers(app)
+        app.include_router(router, prefix="/auth")
+        app.dependency_overrides[get_user_service] = lambda: mock_user_service
+
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                "/auth/jwt/refresh",
+                json={"refresh_token": valid_access_token},
+            )
+
+        assert response.status_code == 401
+
+    @pytest.mark.asyncio
+    async def test_raises_user_not_found_error_when_user_deleted(
+        self,
+        jwt_provider: JWTAuthProvider[int],
+        valid_refresh_token: str,
+        mock_user_service: AsyncMock,
+    ) -> None:
+        """Test refresh fails with UserNotFoundError when user deleted."""
+        from fastapi import FastAPI
+        from httpx import ASGITransport, AsyncClient
+
+        from app.core.exceptions.handlers import setup_exception_handlers
+        from app.dependencies import get_user_service
+        from app.domains.users.exceptions import UserNotFoundError
+
+        mock_user_service.get_by_id.side_effect = UserNotFoundError("User not found")
+
+        router = create_jwt_router(jwt_provider)
+        app = FastAPI()
+        setup_exception_handlers(app)
+        app.include_router(router, prefix="/auth")
+        app.dependency_overrides[get_user_service] = lambda: mock_user_service
+
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                "/auth/jwt/refresh",
+                json={"refresh_token": valid_refresh_token},
+            )
+
+        assert response.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_raises_inactive_user_error_when_user_deactivated(
+        self,
+        jwt_provider: JWTAuthProvider[int],
+        valid_refresh_token: str,
+        inactive_user: User,
+        mock_user_service: AsyncMock,
+    ) -> None:
+        """Test refresh fails with InactiveUserError when user deactivated."""
+        from fastapi import FastAPI
+        from httpx import ASGITransport, AsyncClient
+
+        from app.core.exceptions.handlers import setup_exception_handlers
+        from app.dependencies import get_user_service
+
+        mock_user_service.get_by_id.return_value = inactive_user
+
+        router = create_jwt_router(jwt_provider)
+        app = FastAPI()
+        setup_exception_handlers(app)
+        app.include_router(router, prefix="/auth")
+        app.dependency_overrides[get_user_service] = lambda: mock_user_service
+
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            response = await client.post(
+                "/auth/jwt/refresh",
+                json={"refresh_token": valid_refresh_token},
+            )
+
+        assert response.status_code == 403
+        assert "inactive" in response.json()["error"]["message"].lower()

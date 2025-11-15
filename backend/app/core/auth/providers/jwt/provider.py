@@ -15,7 +15,6 @@ from fastapi.security import OAuth2PasswordBearer
 from fastapi.security.base import SecurityBase
 
 from app.core.auth.exceptions import (
-    InactiveUserError,
     InvalidTokenError,
     TokenExpiredError,
 )
@@ -258,20 +257,20 @@ class JWTAuthProvider[ID: (int, UUID)](AuthProvider[ID]):
         validates the token, parses the user ID, retrieves the user, and
         checks account status.
 
-        Note: User lookup failures are transformed to InvalidTokenError to
-        maintain token-centric error reporting. This prevents leaking
-        information about user existence via token verification.
+        Returns None for all authentication failures to allow fallback to
+        other providers in multi-provider configurations. This prevents
+        leaking information about user existence or account status.
 
         Args:
             request: FastAPI request object.
             user_service: User service implementing authentication operations.
 
         Returns:
-            Authenticated User object or None if authentication fails.
+            Authenticated User object or None if authentication fails
+            (invalid token, user not found, or inactive account).
 
         Raises:
-            InvalidTokenError: Token is invalid, malformed, or user not found.
-            InactiveUserError: User account is inactive.
+            InvalidTokenError: Token is malformed or has invalid user ID format.
         """
         auth_header = request.headers.get("Authorization", "")
         token = auth_header.split()[1] if len(auth_header.split()) == 2 else ""
@@ -298,21 +297,19 @@ class JWTAuthProvider[ID: (int, UUID)](AuthProvider[ID]):
 
         try:
             user = await user_service.get_by_id(user_id)
-        except UserNotFoundError as e:
-            logger.error(
+        except UserNotFoundError:
+            logger.warning(
                 "authentication_failed",
-                reason="user_not_found",
-                user_id=user_id,
+                reason="token_refers_to_nonexistent_user",
             )
-            raise InvalidTokenError("Invalid token: user not found") from e
+            return None
 
         if not user.is_active:
             logger.warning(
                 "authentication_failed",
                 reason="inactive_user",
-                user_id=user.id,
             )
-            raise InactiveUserError(user_id=user.id)
+            return None
 
         logger.info(
             "authentication_successful",
