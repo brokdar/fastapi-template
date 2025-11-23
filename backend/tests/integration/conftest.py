@@ -170,7 +170,7 @@ async def authenticated_client(
 ) -> AsyncGenerator[httpx.AsyncClient, None]:
     """Provide httpx async client authenticated as normal user via JWT."""
     login_response = await unauthorized_client.post(
-        f"{integration_settings.API_PATH}/auth/jwt/login",
+        f"{integration_settings.api_path}/auth/jwt/login",
         data={
             "username": normal_user_credentials["username"],
             "password": normal_user_credentials["password"],
@@ -197,7 +197,7 @@ async def admin_client(
 ) -> AsyncGenerator[httpx.AsyncClient, None]:
     """Provide httpx async client authenticated as admin user via JWT."""
     login_response = await unauthorized_client.post(
-        f"{integration_settings.API_PATH}/auth/jwt/login",
+        f"{integration_settings.api_path}/auth/jwt/login",
         data={
             "username": admin_user_credentials["username"],
             "password": admin_user_credentials["password"],

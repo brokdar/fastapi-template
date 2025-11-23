@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 from fastapi import APIRouter, FastAPI, Request
+from fastapi.security.base import SecurityBase
 
 from app.core.auth.providers.base import AuthProvider
 from app.core.auth.services import AuthService
@@ -68,8 +69,6 @@ def create_auth_provider() -> Callable[..., Mock]:
     """Factory function to create mock AuthProvider instances."""
 
     def _create_provider(**kwargs: Any) -> Mock:
-        from fastapi.security.base import SecurityBase
-
         provider = Mock(spec=AuthProvider)
         provider.name = kwargs.get("name", "test_provider")
         provider.can_authenticate.return_value = kwargs.get("can_authenticate", False)

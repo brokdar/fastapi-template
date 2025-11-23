@@ -19,7 +19,7 @@ class TestHealthEndpoint:
     ) -> None:
         """Test health endpoint returns 200 with valid response."""
         response = await unauthorized_client.get(
-            f"{integration_settings.API_PATH}/health"
+            f"{integration_settings.api_path}/health"
         )
 
         assert response.status_code == 200

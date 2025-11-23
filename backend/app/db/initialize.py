@@ -48,12 +48,12 @@ async def ensure_super_user(session: AsyncSession) -> None:
     service = UserService(UserRepository(session), password_service)
     settings = get_settings()
     try:
-        await service.get_by_name(settings.SUPER_USER.NAME)
+        await service.get_by_name(settings.super_user.name)
     except UserNotFoundError:
         user_data = UserCreate.model_construct(
-            username=settings.SUPER_USER.NAME,
-            password=settings.SUPER_USER.PASSWORD,
-            email=settings.SUPER_USER.EMAIL,
+            username=settings.super_user.name,
+            password=settings.super_user.password,
+            email=settings.super_user.email,
             role=UserRole.ADMIN,
         )
         await service.create_user(user_data)

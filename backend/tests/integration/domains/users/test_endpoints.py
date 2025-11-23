@@ -19,7 +19,7 @@ class TestUsersCollection:
         ensure_test_users: tuple[Any, Any],
     ) -> None:
         """Test admin successfully lists users with pagination format."""
-        response = await admin_client.get(f"{integration_settings.API_PATH}/users/")
+        response = await admin_client.get(f"{integration_settings.api_path}/users/")
 
         assert response.status_code == 200
         data = response.json()
@@ -55,7 +55,7 @@ class TestUsersCollection:
     ) -> None:
         """Test pagination parameters work correctly."""
         response = await admin_client.get(
-            f"{integration_settings.API_PATH}/users/",
+            f"{integration_settings.api_path}/users/",
             params={"offset": offset, "limit": limit},
         )
 
@@ -73,7 +73,7 @@ class TestUsersCollection:
     ) -> None:
         """Test non-admin user cannot list users."""
         response = await authenticated_client.get(
-            f"{integration_settings.API_PATH}/users/"
+            f"{integration_settings.api_path}/users/"
         )
 
         assert response.status_code == 403
@@ -89,7 +89,7 @@ class TestUsersCollection:
     ) -> None:
         """Test admin successfully creates new user."""
         response = await admin_client.post(
-            f"{integration_settings.API_PATH}/users/",
+            f"{integration_settings.api_path}/users/",
             json={
                 "username": "newuser",
                 "email": "newuser@example.com",
@@ -122,7 +122,7 @@ class TestUsersCollection:
     ) -> None:
         """Test email uniqueness constraint."""
         response = await admin_client.post(
-            f"{integration_settings.API_PATH}/users/",
+            f"{integration_settings.api_path}/users/",
             json={
                 "username": "otheruser",
                 "email": normal_user_data["email"],
@@ -145,7 +145,7 @@ class TestUsersCollection:
     ) -> None:
         """Test username uniqueness constraint."""
         response = await admin_client.post(
-            f"{integration_settings.API_PATH}/users/",
+            f"{integration_settings.api_path}/users/",
             json={
                 "username": normal_user_data["username"],
                 "email": "other@example.com",
@@ -179,7 +179,7 @@ class TestUsersCollection:
     ) -> None:
         """Test username validation for various invalid inputs."""
         response = await admin_client.post(
-            f"{integration_settings.API_PATH}/users/",
+            f"{integration_settings.api_path}/users/",
             json={
                 "username": invalid_username,
                 "email": "test@example.com",
@@ -200,7 +200,7 @@ class TestUsersCollection:
     ) -> None:
         """Test non-admin user cannot create users."""
         response = await authenticated_client.post(
-            f"{integration_settings.API_PATH}/users/",
+            f"{integration_settings.api_path}/users/",
             json={
                 "username": "newuser",
                 "email": "newuser@example.com",
@@ -228,7 +228,7 @@ class TestUserMe:
     ) -> None:
         """Test authenticated user retrieves own profile."""
         response = await authenticated_client.get(
-            f"{integration_settings.API_PATH}/users/me"
+            f"{integration_settings.api_path}/users/me"
         )
 
         assert response.status_code == 200
@@ -249,7 +249,7 @@ class TestUserMe:
     ) -> None:
         """Test unauthenticated request fails."""
         response = await unauthorized_client.get(
-            f"{integration_settings.API_PATH}/users/me"
+            f"{integration_settings.api_path}/users/me"
         )
 
         assert response.status_code == 401
@@ -266,7 +266,7 @@ class TestUserMe:
     ) -> None:
         """Test authenticated user updates own profile."""
         response = await authenticated_client.patch(
-            f"{integration_settings.API_PATH}/users/me",
+            f"{integration_settings.api_path}/users/me",
             json={
                 "first_name": "Updated",
                 "last_name": "Name",
@@ -287,7 +287,7 @@ class TestUserMe:
     ) -> None:
         """Test partial profile update works correctly."""
         response = await authenticated_client.patch(
-            f"{integration_settings.API_PATH}/users/me",
+            f"{integration_settings.api_path}/users/me",
             json={"first_name": "OnlyFirst"},
         )
 
@@ -305,7 +305,7 @@ class TestUserMe:
     ) -> None:
         """Test email conflict when updating to another user's email."""
         response = await authenticated_client.patch(
-            f"{integration_settings.API_PATH}/users/me",
+            f"{integration_settings.api_path}/users/me",
             json={"email": admin_user_data["email"]},
         )
 
@@ -323,7 +323,7 @@ class TestUserMe:
     ) -> None:
         """Test user can update profile with same email."""
         response = await authenticated_client.patch(
-            f"{integration_settings.API_PATH}/users/me",
+            f"{integration_settings.api_path}/users/me",
             json={
                 "email": normal_user_data["email"],
                 "first_name": "SameEmail",
@@ -351,7 +351,7 @@ class TestUserOperations:
         normal_user, _ = ensure_test_users
 
         response = await admin_client.get(
-            f"{integration_settings.API_PATH}/users/{normal_user.id}"
+            f"{integration_settings.api_path}/users/{normal_user.id}"
         )
 
         assert response.status_code == 200
@@ -368,7 +368,7 @@ class TestUserOperations:
     ) -> None:
         """Test 404 error for non-existent user ID."""
         response = await admin_client.get(
-            f"{integration_settings.API_PATH}/users/999999"
+            f"{integration_settings.api_path}/users/999999"
         )
 
         assert response.status_code == 404
@@ -387,7 +387,7 @@ class TestUserOperations:
         _, admin_user = ensure_test_users
 
         response = await authenticated_client.get(
-            f"{integration_settings.API_PATH}/users/{admin_user.id}"
+            f"{integration_settings.api_path}/users/{admin_user.id}"
         )
 
         assert response.status_code == 403
@@ -406,7 +406,7 @@ class TestUserOperations:
         normal_user, _ = ensure_test_users
 
         response = await admin_client.patch(
-            f"{integration_settings.API_PATH}/users/{normal_user.id}",
+            f"{integration_settings.api_path}/users/{normal_user.id}",
             json={
                 "first_name": "AdminUpdated",
                 "last_name": "UserName",
@@ -430,7 +430,7 @@ class TestUserOperations:
         normal_user, _ = ensure_test_users
 
         response = await admin_client.patch(
-            f"{integration_settings.API_PATH}/users/{normal_user.id}",
+            f"{integration_settings.api_path}/users/{normal_user.id}",
             json={"role": "admin"},
         )
 
@@ -451,7 +451,7 @@ class TestUserOperations:
         normal_user, _ = ensure_test_users
 
         response = await admin_client.patch(
-            f"{integration_settings.API_PATH}/users/{normal_user.id}",
+            f"{integration_settings.api_path}/users/{normal_user.id}",
             json={"email": admin_user_data["email"]},
         )
 
@@ -468,7 +468,7 @@ class TestUserOperations:
     ) -> None:
         """Test admin deletes user and receives 204 status."""
         create_response = await admin_client.post(
-            f"{integration_settings.API_PATH}/users/",
+            f"{integration_settings.api_path}/users/",
             json={
                 "username": "tobedeleted",
                 "email": "tobedeleted@example.com",
@@ -480,7 +480,7 @@ class TestUserOperations:
         user_id = create_response.json()["id"]
 
         response = await admin_client.delete(
-            f"{integration_settings.API_PATH}/users/{user_id}"
+            f"{integration_settings.api_path}/users/{user_id}"
         )
 
         assert response.status_code == 204
@@ -494,7 +494,7 @@ class TestUserOperations:
     ) -> None:
         """Test 404 error when deleting non-existent user."""
         response = await admin_client.delete(
-            f"{integration_settings.API_PATH}/users/999999"
+            f"{integration_settings.api_path}/users/999999"
         )
 
         assert response.status_code == 404
@@ -513,7 +513,7 @@ class TestUserOperations:
         _, admin_user = ensure_test_users
 
         response = await authenticated_client.delete(
-            f"{integration_settings.API_PATH}/users/{admin_user.id}"
+            f"{integration_settings.api_path}/users/{admin_user.id}"
         )
 
         assert response.status_code == 403
