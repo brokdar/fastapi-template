@@ -6,6 +6,7 @@ from typing import Any
 import httpx
 import jwt as pyjwt
 import pytest
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.auth.providers.jwt.schemas import TokenResponse
 from app.domains.users.models import User
@@ -143,7 +144,7 @@ class TestJWTAuthentication:
         unauthorized_client: httpx.AsyncClient,
         ensure_test_users: tuple[User, User],
         login_tokens: TokenResponse,
-        test_session: Any,
+        test_session: AsyncSession,
     ) -> None:
         """Test 401 error when token references inactive user."""
         normal_user, _ = ensure_test_users

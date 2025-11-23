@@ -5,6 +5,8 @@ from typing import Any
 import httpx
 import pytest
 
+from app.domains.users.models import User
+
 
 class TestUsersCollection:
     """Test suite for /users/ collection endpoints."""
@@ -13,7 +15,6 @@ class TestUsersCollection:
     async def test_lists_users_as_admin(
         self,
         admin_client: httpx.AsyncClient,
-        ensure_test_users: tuple[Any, Any],
     ) -> None:
         """Test admin successfully lists users with pagination format."""
         response = await admin_client.get("/users/")
@@ -44,7 +45,6 @@ class TestUsersCollection:
     async def test_lists_users_with_pagination(
         self,
         admin_client: httpx.AsyncClient,
-        ensure_test_users: tuple[Any, Any],
         offset: int,
         limit: int,
         expected_min_items: int,
@@ -108,7 +108,6 @@ class TestUsersCollection:
     async def test_raises_conflict_when_duplicate_email(
         self,
         admin_client: httpx.AsyncClient,
-        ensure_test_users: tuple[Any, Any],
         normal_user_data: dict[str, Any],
     ) -> None:
         """Test email uniqueness constraint."""
@@ -130,7 +129,6 @@ class TestUsersCollection:
     async def test_raises_conflict_when_duplicate_username(
         self,
         admin_client: httpx.AsyncClient,
-        ensure_test_users: tuple[Any, Any],
         normal_user_data: dict[str, Any],
     ) -> None:
         """Test username uniqueness constraint."""
@@ -210,7 +208,6 @@ class TestUserMe:
     async def test_gets_own_profile_successfully(
         self,
         authenticated_client: httpx.AsyncClient,
-        ensure_test_users: tuple[Any, Any],
         normal_user_data: dict[str, Any],
     ) -> None:
         """Test authenticated user retrieves own profile."""
@@ -243,7 +240,6 @@ class TestUserMe:
     async def test_updates_own_profile_successfully(
         self,
         authenticated_client: httpx.AsyncClient,
-        ensure_test_users: tuple[Any, Any],
     ) -> None:
         """Test authenticated user updates own profile."""
         response = await authenticated_client.patch(
@@ -263,7 +259,6 @@ class TestUserMe:
     async def test_updates_partial_fields_successfully(
         self,
         authenticated_client: httpx.AsyncClient,
-        ensure_test_users: tuple[Any, Any],
     ) -> None:
         """Test partial profile update works correctly."""
         response = await authenticated_client.patch(
@@ -279,7 +274,6 @@ class TestUserMe:
     async def test_raises_conflict_when_updating_to_existing_email(
         self,
         authenticated_client: httpx.AsyncClient,
-        ensure_test_users: tuple[Any, Any],
         admin_user_data: dict[str, Any],
     ) -> None:
         """Test email conflict when updating to another user's email."""
@@ -296,7 +290,6 @@ class TestUserMe:
     async def test_allows_keeping_same_email_on_update(
         self,
         authenticated_client: httpx.AsyncClient,
-        ensure_test_users: tuple[Any, Any],
         normal_user_data: dict[str, Any],
     ) -> None:
         """Test user can update profile with same email."""
@@ -321,7 +314,7 @@ class TestUserOperations:
     async def test_gets_user_by_id_as_admin(
         self,
         admin_client: httpx.AsyncClient,
-        ensure_test_users: tuple[Any, Any],
+        ensure_test_users: tuple[User, User],
         normal_user_data: dict[str, Any],
     ) -> None:
         """Test admin retrieves specific user by ID."""
@@ -352,7 +345,7 @@ class TestUserOperations:
     async def test_raises_forbidden_when_non_admin_gets_user(
         self,
         authenticated_client: httpx.AsyncClient,
-        ensure_test_users: tuple[Any, Any],
+        ensure_test_users: tuple[User, User],
     ) -> None:
         """Test non-admin cannot retrieve user by ID."""
         _, admin_user = ensure_test_users
@@ -368,7 +361,7 @@ class TestUserOperations:
     async def test_updates_user_as_admin(
         self,
         admin_client: httpx.AsyncClient,
-        ensure_test_users: tuple[Any, Any],
+        ensure_test_users: tuple[User, User],
     ) -> None:
         """Test admin updates user fields successfully."""
         normal_user, _ = ensure_test_users
@@ -391,7 +384,7 @@ class TestUserOperations:
     async def test_updates_user_role_as_admin(
         self,
         admin_client: httpx.AsyncClient,
-        ensure_test_users: tuple[Any, Any],
+        ensure_test_users: tuple[User, User],
     ) -> None:
         """Test admin modifies user role successfully."""
         normal_user, _ = ensure_test_users
@@ -410,7 +403,7 @@ class TestUserOperations:
     async def test_raises_conflict_when_updating_to_duplicate_email(
         self,
         admin_client: httpx.AsyncClient,
-        ensure_test_users: tuple[Any, Any],
+        ensure_test_users: tuple[User, User],
         admin_user_data: dict[str, Any],
     ) -> None:
         """Test email uniqueness constraint during update."""
@@ -429,7 +422,6 @@ class TestUserOperations:
     async def test_deletes_user_successfully_as_admin(
         self,
         admin_client: httpx.AsyncClient,
-        ensure_test_users: tuple[Any, Any],
     ) -> None:
         """Test admin deletes user and receives 204 status."""
         create_response = await admin_client.post(
@@ -466,7 +458,7 @@ class TestUserOperations:
     async def test_raises_forbidden_when_non_admin_deletes_user(
         self,
         authenticated_client: httpx.AsyncClient,
-        ensure_test_users: tuple[Any, Any],
+        ensure_test_users: tuple[User, User],
     ) -> None:
         """Test non-admin cannot delete users."""
         _, admin_user = ensure_test_users

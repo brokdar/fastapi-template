@@ -1,10 +1,13 @@
 """Integration tests for API key authentication flow."""
 
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import httpx
 import pytest
+from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app.core.auth.providers.api_key.models import APIKey
 from app.core.auth.providers.api_key.schemas import APIKeyCreateResponse
 from app.domains.users.models import User
 from app.main import app
@@ -19,6 +22,7 @@ class TestAPIKeyAuthentication:
         self,
         created_api_key: tuple[APIKeyCreateResponse, str],
         admin_client: httpx.AsyncClient,
+        admin_user_credentials: dict[str, str],
         ensure_test_users: tuple[User, User],
         normal_user_data: dict[str, Any],
     ) -> None:
@@ -28,7 +32,7 @@ class TestAPIKeyAuthentication:
 
         login_response = await admin_client.post(
             "/auth/jwt/login",
-            data={"username": "testadmin", "password": "testpass123"},
+            data=admin_user_credentials,
         )
         jwt_token = login_response.json()["access_token"]
 
@@ -45,35 +49,24 @@ class TestAPIKeyAuthentication:
         assert data["id"] == normal_user.id
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "invalid_key",
+        [
+            "sk_invalid_key_that_is_not_valid_at_all_12345678901234567890",
+            "not_a_valid_key",
+        ],
+        ids=["invalid_secret", "malformed_format"],
+    )
     @pytest.mark.usefixtures("override_get_session")
     async def test_raises_unauthorized_with_invalid_api_key(
         self,
+        invalid_key: str,
     ) -> None:
-        """Test 401 error with invalid API key."""
+        """Test 401 error with invalid API key formats."""
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=app),
             base_url="http://testserver/api/v1",
-            headers={
-                "X-API-Key": "sk_invalid_key_that_is_not_valid_at_all_12345678901234567890"
-            },
-        ) as client:
-            response = await client.get("/users/me")
-
-        assert response.status_code == 401
-        data = response.json()
-        assert "error" in data
-        assert data["error"]["code"] == "AUTHENTICATION_ERROR"
-
-    @pytest.mark.asyncio
-    @pytest.mark.usefixtures("override_get_session")
-    async def test_raises_unauthorized_with_malformed_api_key(
-        self,
-    ) -> None:
-        """Test 401 error with malformed API key format."""
-        async with httpx.AsyncClient(
-            transport=httpx.ASGITransport(app=app),
-            base_url="http://testserver/api/v1",
-            headers={"X-API-Key": "not_a_valid_key"},
+            headers={"X-API-Key": invalid_key},
         ) as client:
             response = await client.get("/users/me")
 
@@ -86,13 +79,9 @@ class TestAPIKeyAuthentication:
     async def test_raises_unauthorized_with_expired_api_key(
         self,
         authenticated_client: httpx.AsyncClient,
-        test_session: Any,
+        test_session: AsyncSession,
     ) -> None:
         """Test 401 error when API key has expired."""
-        from datetime import UTC, datetime, timedelta
-
-        from app.core.auth.providers.api_key.models import APIKey
-
         create_response = await authenticated_client.post(
             "/auth/api-keys",
             json={"name": "Expiring Key", "expires_in_days": 1},
@@ -142,6 +131,7 @@ class TestMultiProviderAuthentication:
         self,
         created_api_key: tuple[APIKeyCreateResponse, str],
         admin_client: httpx.AsyncClient,
+        admin_user_credentials: dict[str, str],
         ensure_test_users: tuple[User, User],
         normal_user_data: dict[str, Any],
     ) -> None:
@@ -151,10 +141,7 @@ class TestMultiProviderAuthentication:
 
         login_response = await admin_client.post(
             "/auth/jwt/login",
-            data={
-                "username": "testadmin",
-                "password": "testpass123",
-            },
+            data=admin_user_credentials,
         )
         jwt_token = login_response.json()["access_token"]
 

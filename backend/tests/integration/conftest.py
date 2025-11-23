@@ -1,6 +1,6 @@
 """Integration test fixtures and configuration."""
 
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Callable
 from typing import Any
 
 import httpx
@@ -19,6 +19,10 @@ from app.domains.users.schemas import UserCreate
 from app.domains.users.services import IntUserService
 from app.main import app
 from tests.integration import IntegrationSettings
+
+AuthenticatedClientFactory = Callable[
+    [dict[str, str]], AsyncGenerator[httpx.AsyncClient, None]
+]
 
 
 @pytest.fixture(scope="session")
@@ -162,56 +166,51 @@ async def unauthorized_client(
 
 
 @pytest.fixture
-async def authenticated_client(
+def create_authenticated_client(
     unauthorized_client: httpx.AsyncClient,
     integration_settings: IntegrationSettings,
     ensure_test_users: tuple[User, User],
+) -> AuthenticatedClientFactory:
+    """Factory fixture for creating authenticated clients with specified credentials."""
+
+    async def _create(
+        credentials: dict[str, str],
+    ) -> AsyncGenerator[httpx.AsyncClient, None]:
+        login_response = await unauthorized_client.post(
+            "/auth/jwt/login",
+            data=credentials,
+        )
+        assert login_response.status_code == 200
+
+        token_data = TokenResponse(**login_response.json())
+
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
+            base_url=f"http://testserver{integration_settings.api_path}",
+            headers={"Authorization": f"Bearer {token_data.access_token}"},
+        ) as client:
+            yield client
+
+    return _create
+
+
+@pytest.fixture
+async def authenticated_client(
+    create_authenticated_client: AuthenticatedClientFactory,
     normal_user_credentials: dict[str, str],
 ) -> AsyncGenerator[httpx.AsyncClient, None]:
     """Provide httpx async client authenticated as normal user via JWT."""
-    login_response = await unauthorized_client.post(
-        "/auth/jwt/login",
-        data={
-            "username": normal_user_credentials["username"],
-            "password": normal_user_credentials["password"],
-        },
-    )
-    assert login_response.status_code == 200
-
-    token_data = TokenResponse(**login_response.json())
-
-    async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=app),
-        base_url=f"http://testserver{integration_settings.api_path}",
-        headers={"Authorization": f"Bearer {token_data.access_token}"},
-    ) as client:
+    async for client in create_authenticated_client(normal_user_credentials):
         yield client
 
 
 @pytest.fixture
 async def admin_client(
-    unauthorized_client: httpx.AsyncClient,
-    integration_settings: IntegrationSettings,
-    ensure_test_users: tuple[User, User],
+    create_authenticated_client: AuthenticatedClientFactory,
     admin_user_credentials: dict[str, str],
 ) -> AsyncGenerator[httpx.AsyncClient, None]:
     """Provide httpx async client authenticated as admin user via JWT."""
-    login_response = await unauthorized_client.post(
-        "/auth/jwt/login",
-        data={
-            "username": admin_user_credentials["username"],
-            "password": admin_user_credentials["password"],
-        },
-    )
-    assert login_response.status_code == 200
-
-    token_data = TokenResponse(**login_response.json())
-
-    async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=app),
-        base_url=f"http://testserver{integration_settings.api_path}",
-        headers={"Authorization": f"Bearer {token_data.access_token}"},
-    ) as client:
+    async for client in create_authenticated_client(admin_user_credentials):
         yield client
 
 
