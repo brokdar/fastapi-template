@@ -156,7 +156,7 @@ async def unauthorized_client(
     """Provide httpx async client without authentication."""
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app),
-        base_url="http://testserver",
+        base_url=f"http://testserver{integration_settings.api_path}",
     ) as client:
         yield client
 
@@ -170,7 +170,7 @@ async def authenticated_client(
 ) -> AsyncGenerator[httpx.AsyncClient, None]:
     """Provide httpx async client authenticated as normal user via JWT."""
     login_response = await unauthorized_client.post(
-        f"{integration_settings.api_path}/auth/jwt/login",
+        "/auth/jwt/login",
         data={
             "username": normal_user_credentials["username"],
             "password": normal_user_credentials["password"],
@@ -182,7 +182,7 @@ async def authenticated_client(
 
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app),
-        base_url="http://testserver",
+        base_url=f"http://testserver{integration_settings.api_path}",
         headers={"Authorization": f"Bearer {token_data.access_token}"},
     ) as client:
         yield client
@@ -197,7 +197,7 @@ async def admin_client(
 ) -> AsyncGenerator[httpx.AsyncClient, None]:
     """Provide httpx async client authenticated as admin user via JWT."""
     login_response = await unauthorized_client.post(
-        f"{integration_settings.api_path}/auth/jwt/login",
+        "/auth/jwt/login",
         data={
             "username": admin_user_credentials["username"],
             "password": admin_user_credentials["password"],
@@ -209,7 +209,7 @@ async def admin_client(
 
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app),
-        base_url="http://testserver",
+        base_url=f"http://testserver{integration_settings.api_path}",
         headers={"Authorization": f"Bearer {token_data.access_token}"},
     ) as client:
         yield client
@@ -231,7 +231,7 @@ async def mock_authenticated_client(
 
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app),
-        base_url="http://testserver",
+        base_url=f"http://testserver{integration_settings.api_path}",
     ) as client:
         yield client
 

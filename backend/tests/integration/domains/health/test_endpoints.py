@@ -5,7 +5,6 @@ import pytest
 from pydantic import TypeAdapter
 
 from app.domains.health.schemas import HealthResponse
-from tests.integration import IntegrationSettings
 
 
 class TestHealthEndpoint:
@@ -15,12 +14,9 @@ class TestHealthEndpoint:
     async def test_returns_healthy_status(
         self,
         unauthorized_client: httpx.AsyncClient,
-        integration_settings: IntegrationSettings,
     ) -> None:
         """Test health endpoint returns 200 with valid response."""
-        response = await unauthorized_client.get(
-            f"{integration_settings.api_path}/health"
-        )
+        response = await unauthorized_client.get("/health")
 
         assert response.status_code == 200
 
