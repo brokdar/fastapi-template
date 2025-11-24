@@ -5,7 +5,7 @@ from inspect import Parameter
 from unittest.mock import AsyncMock, Mock
 
 import pytest
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from fastapi.security.base import SecurityBase
 
 from app.core.auth.exceptions import InvalidTokenError
@@ -256,94 +256,45 @@ class TestAuthServiceRequireRoles:
         assert callable(dependency)
 
     @pytest.mark.asyncio
-    async def test_dependency_authenticates_and_authorizes_user_with_correct_role(
+    async def test_dependency_authorizes_user_with_correct_role(
         self,
-        mock_request: Mock,
-        mock_user_service_dependency: Callable[[], AsyncMock],
-        create_auth_provider: Callable[..., Mock],
+        auth_service: AuthService[int],
         regular_user: User,
     ) -> None:
-        """Test dependency authenticates and authorizes user with matching role."""
-        provider = create_auth_provider(
-            name="provider1",
-            can_authenticate=True,
-            authenticate_return=regular_user,
-        )
-        auth_service = AuthService(
-            get_user_service=mock_user_service_dependency,
-            providers=[provider],
-        )
-        user_service = AsyncMock()
+        """Test dependency authorizes user with matching role."""
         dependency = auth_service.require_roles(UserRole.USER)
 
-        result = await dependency(mock_request, user_service)
+        result = await dependency(user=regular_user)
 
         assert result == regular_user
 
     @pytest.mark.asyncio
     async def test_dependency_allows_user_with_one_of_multiple_required_roles(
         self,
-        mock_request: Mock,
-        mock_user_service_dependency: Callable[[], AsyncMock],
-        create_auth_provider: Callable[..., Mock],
+        auth_service: AuthService[int],
         admin_user: User,
     ) -> None:
         """Test dependency allows user with one of multiple required roles."""
-        provider = create_auth_provider(
-            name="provider1",
-            can_authenticate=True,
-            authenticate_return=admin_user,
-        )
-        auth_service = AuthService(
-            get_user_service=mock_user_service_dependency,
-            providers=[provider],
-        )
-        user_service = AsyncMock()
         dependency = auth_service.require_roles(UserRole.USER, UserRole.ADMIN)
 
-        result = await dependency(mock_request, user_service)
+        result = await dependency(user=admin_user)
 
         assert result == admin_user
 
     @pytest.mark.asyncio
     async def test_raises_authorization_error_when_user_lacks_required_role(
         self,
-        mock_request: Mock,
-        mock_user_service_dependency: Callable[[], AsyncMock],
-        create_auth_provider: Callable[..., Mock],
+        auth_service: AuthService[int],
         regular_user: User,
     ) -> None:
         """Test AuthorizationError when user lacks required role."""
-        provider = create_auth_provider(
-            name="provider1",
-            can_authenticate=True,
-            authenticate_return=regular_user,
-        )
-        auth_service = AuthService(
-            get_user_service=mock_user_service_dependency,
-            providers=[provider],
-        )
-        user_service = AsyncMock()
         dependency = auth_service.require_roles(UserRole.ADMIN)
 
         with pytest.raises(
             AuthorizationError,
             match="User role 'user' not authorized. Required roles: admin",
         ):
-            await dependency(mock_request, user_service)
-
-    @pytest.mark.asyncio
-    async def test_raises_invalid_token_error_before_checking_roles(
-        self,
-        mock_request: Mock,
-        auth_service: AuthService[int],
-    ) -> None:
-        """Test authentication failure occurs before role checking."""
-        user_service = AsyncMock()
-        dependency = auth_service.require_roles(UserRole.USER)
-
-        with pytest.raises(InvalidTokenError, match="Authentication failed"):
-            await dependency(mock_request, user_service)
+            await dependency(user=regular_user)
 
 
 class TestAuthServiceRegisterRoutes:
@@ -701,8 +652,6 @@ class TestAuthServiceGetDependencySignature:
         create_auth_provider: Callable[..., Mock],
     ) -> None:
         """Test all parameter annotations are correct."""
-        from fastapi import Request
-
         provider1 = create_auth_provider(name="jwt")
         provider2 = create_auth_provider(name="api_key")
         auth_service = AuthService[int](

@@ -327,13 +327,26 @@ Configure JWT authentication via environment variables:
 
 ```env
 # JWT Configuration
-AUTH__JWT_SECRET_KEY=your-secret-key-min-32-characters-long
-AUTH__JWT_ALGORITHM=HS256
-AUTH__JWT_ACCESS_TOKEN_EXPIRE_MINUTES=15
-AUTH__JWT_REFRESH_TOKEN_EXPIRE_DAYS=7
+AUTH__JWT__SECRET_KEY=your-secret-key-min-32-characters-long
+AUTH__JWT__ALGORITHM=HS256
+AUTH__JWT__ACCESS_TOKEN_EXPIRE_MINUTES=15
+AUTH__JWT__REFRESH_TOKEN_EXPIRE_DAYS=7
+
+# API Key Configuration
+AUTH__API_KEY__MAX_PER_USER=5
+AUTH__API_KEY__DEFAULT_EXPIRATION_DAYS=30
+AUTH__API_KEY__HEADER_NAME=X-API-Key
 ```
 
-**Note:** The configuration uses nested structure. Environment variables use double underscore (`__`) as delimiter (e.g., `AUTH__JWT_SECRET_KEY` → `settings.AUTH.JWT_SECRET_KEY`).
+**Configuration Options:**
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `AUTH__API_KEY__MAX_PER_USER` | 5 | Maximum API keys per user (1-100) |
+| `AUTH__API_KEY__DEFAULT_EXPIRATION_DAYS` | 30 | Default key expiration (1-365 days) |
+| `AUTH__API_KEY__HEADER_NAME` | X-API-Key | HTTP header name for API key |
+
+**Note:** The configuration uses nested structure. Environment variables use double underscore (`__`) as delimiter (e.g., `AUTH__JWT__SECRET_KEY` → `settings.auth.jwt.secret_key`).
 
 ### Security Best Practices
 
@@ -349,24 +362,34 @@ Configure authentication providers in `dependencies.py`:
 
 ```python
 from app.core.auth import AuthService, JWTAuthProvider
+from app.core.auth.providers.api_key import APIKeyProvider
 from app.config import get_settings
 
 settings = get_settings()
 
 # Create JWT provider
 jwt_provider = JWTAuthProvider(
-    secret_key=settings.AUTH.JWT_SECRET_KEY.get_secret_value(),
-    algorithm=settings.AUTH.JWT_ALGORITHM,
-    access_token_expire_minutes=settings.AUTH.JWT_ACCESS_TOKEN_EXPIRE_MINUTES,
-    refresh_token_expire_days=settings.AUTH.JWT_REFRESH_TOKEN_EXPIRE_DAYS,
+    secret_key=settings.auth.jwt.secret_key.get_secret_value(),
+    algorithm=settings.auth.jwt.algorithm,
+    access_token_expire_minutes=settings.auth.jwt.access_token_expire_minutes,
+    refresh_token_expire_days=settings.auth.jwt.refresh_token_expire_days,
 )
 
-# Create auth service with providers
+# Create API Key provider
+api_key_provider = APIKeyProvider(
+    get_api_key_service=get_api_key_service,  # Required: dependency factory for router
+    header_name=settings.auth.api_key.header_name,
+)
+
+# Create auth service with providers (order matters - first match wins)
 auth_service = AuthService(
     get_user_service=get_user_service,
-    providers=[jwt_provider],  # Add more providers here
+    providers=[api_key_provider, jwt_provider],  # API key checked first, then JWT
+    provider_dependencies={"api_key_service": get_api_key_service},  # For authentication
 )
 ```
+
+**Note:** Providers are tried in order. The first provider where `can_authenticate()` returns `True` handles the request. API keys use header presence, JWT uses Bearer token format.
 
 ## Integration Points
 
@@ -576,3 +599,77 @@ def test_token_generation():
     verified_id = jwt_provider.verify_token(refresh_token, "refresh")
     assert verified_id == user_id
 ```
+
+## API Key Authentication
+
+### Overview
+
+API keys provide a simple authentication mechanism for programmatic access, ideal for:
+- Server-to-server communication
+- CI/CD pipelines
+- Third-party integrations
+- Long-running scripts
+
+### API Key Format
+
+Keys follow the format: `sk_` + 64 hex characters (67 characters total)
+
+Example: `sk_a1b2c3d4e5f6789012345678901234567890123456789012345678901234`
+
+### API Key Management Endpoints
+
+**User Operations:**
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/auth/api-keys` | Create a new API key |
+| GET | `/auth/api-keys` | List your API keys |
+| DELETE | `/auth/api-keys/{key_id}` | Delete an API key |
+
+**Admin Operations:**
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/auth/api-keys/users/{user_id}` | List user's API keys |
+| DELETE | `/auth/api-keys/users/{user_id}/{key_id}` | Delete user's API key |
+
+### Usage Examples
+
+**Create an API Key:**
+
+```bash
+curl -X POST https://api.example.com/auth/api-keys \
+  -H "Authorization: Bearer <jwt_token>" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "CI Pipeline Key", "expires_in_days": 90}'
+```
+
+Response (secret only shown once):
+```json
+{
+  "id": 1,
+  "name": "CI Pipeline Key",
+  "key_prefix": "sk_a1b2c3d4e5f6",
+  "secret_key": "sk_a1b2c3d4e5f6789012345678901234567890123456789012345678901234",
+  "is_active": true,
+  "created_at": "2024-01-15T10:30:00Z",
+  "expires_at": "2024-04-14T10:30:00Z",
+  "last_used_at": null
+}
+```
+
+**Authenticate with API Key:**
+
+```bash
+curl https://api.example.com/profile \
+  -H "X-API-Key: sk_a1b2c3d4e5f6789012345678901234567890123456789012345678901234"
+```
+
+### Security Considerations
+
+1. **Secret Display**: The full API key is only shown once at creation. Store it securely.
+2. **Key Rotation**: Create new keys periodically and delete old ones.
+3. **Expiration**: Keys have configurable expiration (default: 30 days, max: 365 days).
+4. **Per-User Limits**: Users can have up to 5 active keys (configurable).
+5. **Timing Attack Protection**: Validation uses constant-time comparison to prevent timing attacks.
+6. **BCrypt Hashing**: Keys are stored as bcrypt hashes, never in plaintext.

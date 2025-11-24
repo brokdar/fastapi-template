@@ -1,3 +1,5 @@
+"""Unit test fixtures and configuration."""
+
 from collections.abc import Callable
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
@@ -8,6 +10,7 @@ from pytest_mock import MockerFixture
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.config import get_settings
+from app.dependencies import auth_service
 from app.domains.users.models import User, UserRole
 from app.main import app
 
@@ -23,7 +26,7 @@ def mock_session() -> AsyncMock:
 @pytest.fixture(scope="session")
 def api_prefix() -> str:
     """Return the API prefix."""
-    return get_settings().API_PATH
+    return get_settings().api_path
 
 
 @pytest.fixture
@@ -74,12 +77,7 @@ def admin_user(create_user: Callable[..., User]) -> User:
 
 @pytest.fixture
 def authenticated_client(admin_user: User, mocker: MockerFixture) -> TestClient:
-    """Return a test client with admin authentication.
-
-    This fixture is provider-agnostic and works with any authentication provider
-    by mocking all providers' authenticate methods to return the admin user.
-    """
-    from app.dependencies import auth_service
+    """Return a test client with admin authentication."""
 
     async def mock_authenticate(*args: Any, **kwargs: Any) -> User:
         return admin_user

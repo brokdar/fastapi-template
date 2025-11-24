@@ -8,46 +8,48 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from app.core.auth.config import AuthSettings
 
 LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
+Environment = Literal["development", "staging", "production"]
 
 
 class LogSettings(BaseModel):
     """Logging configuration."""
 
-    LEVEL: LogLevel = "INFO"
-    FILE_PATH: str | None = None
-    DISABLE_COLORS: bool = False
+    level: LogLevel = "INFO"
+    file_path: str | None = None
+    disable_colors: bool = False
 
 
 class DatabaseSettings(BaseModel):
     """Database connection configuration."""
 
-    SERVER: str = "localhost"
-    PORT: Annotated[int, Field(ge=1, le=65535)] = 5432
-    USER: str = "postgres"
-    PASSWORD: SecretStr = SecretStr("your-secure-password")
-    DB: str = ""
+    server: str = "localhost"
+    port: Annotated[int, Field(ge=1, le=65535)] = 5432
+    user: str = "postgres"
+    password: SecretStr = SecretStr("your-secure-password")
+    db: str = "app"
 
 
 class SuperUserSettings(BaseModel):
     """Superuser configuration."""
 
-    NAME: str = "admin"
-    EMAIL: str = "admin@example.com"
-    PASSWORD: SecretStr = SecretStr("admin")
+    name: str = "admin"
+    email: str = "admin@example.com"
+    password: SecretStr = SecretStr("admin")
 
 
 class Settings(BaseSettings):
     """Application configuration settings."""
 
-    VERSION: str = "1.0.0"
-    API_PATH: str = "/api/v1"
-    APPLICATION_NAME: str = "FastAPI Template"
-    CORS_ORIGINS: list[str] = ["*"]
+    environment: Environment = "development"
+    version: str = "1.0.0"
+    api_path: str = "/api/v1"
+    application_name: str = "FastAPI Template"
+    cors_origins: list[str] = ["*"]
 
-    LOG: LogSettings = LogSettings()
-    DATABASE: DatabaseSettings = DatabaseSettings()
-    SUPER_USER: SuperUserSettings = SuperUserSettings()
-    AUTH: AuthSettings = AuthSettings()
+    log: LogSettings = LogSettings()
+    database: DatabaseSettings = DatabaseSettings()
+    super_user: SuperUserSettings = SuperUserSettings()
+    auth: AuthSettings = AuthSettings()
 
     model_config = SettingsConfigDict(
         env_nested_delimiter="__",
@@ -59,30 +61,38 @@ class Settings(BaseSettings):
     @computed_field  # type: ignore[prop-decorator]
     @property
     def async_database_url(self) -> PostgresDsn:
-        """Returns the database connection URL."""
+        """Build the async database connection URL.
+
+        Returns:
+            PostgresDsn: Async database URL using asyncpg driver.
+        """
         return PostgresDsn(
             MultiHostUrl.build(
                 scheme="postgresql+asyncpg",
-                username=self.DATABASE.USER,
-                password=self.DATABASE.PASSWORD.get_secret_value(),
-                host=self.DATABASE.SERVER,
-                port=self.DATABASE.PORT,
-                path=self.DATABASE.DB,
+                username=self.database.user,
+                password=self.database.password.get_secret_value(),
+                host=self.database.server,
+                port=self.database.port,
+                path=self.database.db,
             )
         )
 
     @computed_field  # type: ignore[prop-decorator]
     @property
     def sync_database_url(self) -> PostgresDsn:
-        """Get the sync database URL for Alembic."""
+        """Build the sync database connection URL for Alembic migrations.
+
+        Returns:
+            PostgresDsn: Sync database URL using psycopg driver.
+        """
         return PostgresDsn(
             MultiHostUrl.build(
                 scheme="postgresql+psycopg",
-                username=self.DATABASE.USER,
-                password=self.DATABASE.PASSWORD.get_secret_value(),
-                host=self.DATABASE.SERVER,
-                port=self.DATABASE.PORT,
-                path=self.DATABASE.DB,
+                username=self.database.user,
+                password=self.database.password.get_secret_value(),
+                host=self.database.server,
+                port=self.database.port,
+                path=self.database.db,
             )
         )
 

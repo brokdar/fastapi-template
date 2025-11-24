@@ -40,15 +40,21 @@ class AuthService[ID: (int, UUID)]:
         self,
         get_user_service: UserServiceDependency[ID],
         providers: Sequence[AuthProvider[ID]],
+        provider_dependencies: dict[str, Callable[..., Any]] | None = None,
     ) -> None:
         """Initialize AuthService with dependency callable and providers.
 
         Args:
             get_user_service: Callable that returns UserService (dependency).
             providers: List of authentication providers in order of priority.
+            provider_dependencies: Optional dict of named dependencies to inject
+                into request.state for provider use.
         """
         self.get_user_service: UserServiceDependency[ID] = get_user_service
         self._providers: Sequence[AuthProvider[ID]] = providers
+        self._provider_dependencies: dict[str, Callable[..., Any]] = (
+            provider_dependencies or {}
+        )
 
     @cached_property
     def _dependency_signature(self) -> Signature:
@@ -109,11 +115,37 @@ class AuthService[ID: (int, UUID)]:
             )
         )
 
+        # Add provider dependencies to signature
+        for dep_name, dep_callable in self._provider_dependencies.items():
+            parameters.append(
+                Parameter(
+                    name=dep_name,
+                    kind=Parameter.POSITIONAL_OR_KEYWORD,
+                    default=Depends(dep_callable),
+                    annotation=Any,
+                )
+            )
+
         return Signature(parameters, return_annotation=User)
 
     async def _authenticate(
         self, request: Request, user_service: UserService[ID]
     ) -> User:
+        """Authenticate request using registered providers.
+
+        Tries each provider in registration order. First provider that can
+        authenticate and returns a valid user wins.
+
+        Args:
+            request: The incoming HTTP request.
+            user_service: Service for user operations.
+
+        Returns:
+            Authenticated User object.
+
+        Raises:
+            InvalidTokenError: If no provider successfully authenticates.
+        """
         for provider in self._providers:
             if provider.can_authenticate(request):
                 logger.debug("authentication_attempted", provider=provider.name)
@@ -160,6 +192,11 @@ class AuthService[ID: (int, UUID)]:
             user_service: UserService[ID],
             **kwargs: Any,
         ) -> User:
+            # Inject provider dependencies into request.state
+            for dep_name in self._provider_dependencies:
+                if dep_name in kwargs:
+                    setattr(request.state, dep_name, kwargs[dep_name])
+
             user = await self._authenticate(request, user_service)
             request.state.user = user
             return user
@@ -169,9 +206,9 @@ class AuthService[ID: (int, UUID)]:
     def require_roles(self, *roles: UserRole) -> Callable[..., Awaitable[User]]:
         """FastAPI dependency factory for role-based access control.
 
-        Generates a dependency with dynamic signature including all provider
-        security schemes for OpenAPI documentation. At runtime, authenticates
-        user and validates they have one of the required roles.
+        Depends on require_user for authentication, then validates the user
+        has one of the required roles. Security schemes are inherited from
+        require_user dependency for OpenAPI documentation.
 
         Args:
             *roles: One or more required roles (user must have at least one).
@@ -183,17 +220,9 @@ class AuthService[ID: (int, UUID)]:
             InvalidTokenError: If authentication fails.
             AuthorizationError: If user doesn't have required role.
         """
-        signature = self._dependency_signature
+        require_user_dep: Callable[..., Awaitable[User]] = self.require_user
 
-        @typed_signature(signature)
-        async def dependency(
-            request: Request,
-            user_service: UserService[ID],
-            **kwargs: Any,
-        ) -> User:
-            user = await self._authenticate(request, user_service)
-            request.state.user = user
-
+        async def dependency(user: User = Depends(require_user_dep)) -> User:
             if user.role not in roles:
                 logger.warning(
                     "authorization_failed",

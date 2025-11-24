@@ -5,7 +5,7 @@ from typing import Any
 import httpx
 import pytest
 
-from tests.integration import IntegrationSettings
+from app.domains.users.models import User
 
 
 class TestUsersCollection:
@@ -15,11 +15,9 @@ class TestUsersCollection:
     async def test_lists_users_as_admin(
         self,
         admin_client: httpx.AsyncClient,
-        integration_settings: IntegrationSettings,
-        ensure_test_users: tuple[Any, Any],
     ) -> None:
         """Test admin successfully lists users with pagination format."""
-        response = await admin_client.get(f"{integration_settings.API_PATH}/users/")
+        response = await admin_client.get("/users/")
 
         assert response.status_code == 200
         data = response.json()
@@ -47,15 +45,13 @@ class TestUsersCollection:
     async def test_lists_users_with_pagination(
         self,
         admin_client: httpx.AsyncClient,
-        integration_settings: IntegrationSettings,
-        ensure_test_users: tuple[Any, Any],
         offset: int,
         limit: int,
         expected_min_items: int,
     ) -> None:
         """Test pagination parameters work correctly."""
         response = await admin_client.get(
-            f"{integration_settings.API_PATH}/users/",
+            "/users/",
             params={"offset": offset, "limit": limit},
         )
 
@@ -69,12 +65,9 @@ class TestUsersCollection:
     async def test_raises_forbidden_when_non_admin_lists_users(
         self,
         authenticated_client: httpx.AsyncClient,
-        integration_settings: IntegrationSettings,
     ) -> None:
         """Test non-admin user cannot list users."""
-        response = await authenticated_client.get(
-            f"{integration_settings.API_PATH}/users/"
-        )
+        response = await authenticated_client.get("/users/")
 
         assert response.status_code == 403
         data = response.json()
@@ -85,11 +78,10 @@ class TestUsersCollection:
     async def test_creates_user_as_admin(
         self,
         admin_client: httpx.AsyncClient,
-        integration_settings: IntegrationSettings,
     ) -> None:
         """Test admin successfully creates new user."""
         response = await admin_client.post(
-            f"{integration_settings.API_PATH}/users/",
+            "/users/",
             json={
                 "username": "newuser",
                 "email": "newuser@example.com",
@@ -116,13 +108,11 @@ class TestUsersCollection:
     async def test_raises_conflict_when_duplicate_email(
         self,
         admin_client: httpx.AsyncClient,
-        integration_settings: IntegrationSettings,
-        ensure_test_users: tuple[Any, Any],
         normal_user_data: dict[str, Any],
     ) -> None:
         """Test email uniqueness constraint."""
         response = await admin_client.post(
-            f"{integration_settings.API_PATH}/users/",
+            "/users/",
             json={
                 "username": "otheruser",
                 "email": normal_user_data["email"],
@@ -139,13 +129,11 @@ class TestUsersCollection:
     async def test_raises_conflict_when_duplicate_username(
         self,
         admin_client: httpx.AsyncClient,
-        integration_settings: IntegrationSettings,
-        ensure_test_users: tuple[Any, Any],
         normal_user_data: dict[str, Any],
     ) -> None:
         """Test username uniqueness constraint."""
         response = await admin_client.post(
-            f"{integration_settings.API_PATH}/users/",
+            "/users/",
             json={
                 "username": normal_user_data["username"],
                 "email": "other@example.com",
@@ -173,13 +161,12 @@ class TestUsersCollection:
     async def test_raises_validation_error_for_invalid_username(
         self,
         admin_client: httpx.AsyncClient,
-        integration_settings: IntegrationSettings,
         invalid_username: str,
         expected_status: int,
     ) -> None:
         """Test username validation for various invalid inputs."""
         response = await admin_client.post(
-            f"{integration_settings.API_PATH}/users/",
+            "/users/",
             json={
                 "username": invalid_username,
                 "email": "test@example.com",
@@ -196,11 +183,10 @@ class TestUsersCollection:
     async def test_raises_forbidden_when_non_admin_creates_user(
         self,
         authenticated_client: httpx.AsyncClient,
-        integration_settings: IntegrationSettings,
     ) -> None:
         """Test non-admin user cannot create users."""
         response = await authenticated_client.post(
-            f"{integration_settings.API_PATH}/users/",
+            "/users/",
             json={
                 "username": "newuser",
                 "email": "newuser@example.com",
@@ -222,14 +208,10 @@ class TestUserMe:
     async def test_gets_own_profile_successfully(
         self,
         authenticated_client: httpx.AsyncClient,
-        integration_settings: IntegrationSettings,
-        ensure_test_users: tuple[Any, Any],
         normal_user_data: dict[str, Any],
     ) -> None:
         """Test authenticated user retrieves own profile."""
-        response = await authenticated_client.get(
-            f"{integration_settings.API_PATH}/users/me"
-        )
+        response = await authenticated_client.get("/users/me")
 
         assert response.status_code == 200
         data = response.json()
@@ -245,12 +227,9 @@ class TestUserMe:
     async def test_raises_unauthorized_without_authentication(
         self,
         unauthorized_client: httpx.AsyncClient,
-        integration_settings: IntegrationSettings,
     ) -> None:
         """Test unauthenticated request fails."""
-        response = await unauthorized_client.get(
-            f"{integration_settings.API_PATH}/users/me"
-        )
+        response = await unauthorized_client.get("/users/me")
 
         assert response.status_code == 401
         data = response.json()
@@ -261,12 +240,10 @@ class TestUserMe:
     async def test_updates_own_profile_successfully(
         self,
         authenticated_client: httpx.AsyncClient,
-        integration_settings: IntegrationSettings,
-        ensure_test_users: tuple[Any, Any],
     ) -> None:
         """Test authenticated user updates own profile."""
         response = await authenticated_client.patch(
-            f"{integration_settings.API_PATH}/users/me",
+            "/users/me",
             json={
                 "first_name": "Updated",
                 "last_name": "Name",
@@ -282,12 +259,10 @@ class TestUserMe:
     async def test_updates_partial_fields_successfully(
         self,
         authenticated_client: httpx.AsyncClient,
-        integration_settings: IntegrationSettings,
-        ensure_test_users: tuple[Any, Any],
     ) -> None:
         """Test partial profile update works correctly."""
         response = await authenticated_client.patch(
-            f"{integration_settings.API_PATH}/users/me",
+            "/users/me",
             json={"first_name": "OnlyFirst"},
         )
 
@@ -299,13 +274,11 @@ class TestUserMe:
     async def test_raises_conflict_when_updating_to_existing_email(
         self,
         authenticated_client: httpx.AsyncClient,
-        integration_settings: IntegrationSettings,
-        ensure_test_users: tuple[Any, Any],
         admin_user_data: dict[str, Any],
     ) -> None:
         """Test email conflict when updating to another user's email."""
         response = await authenticated_client.patch(
-            f"{integration_settings.API_PATH}/users/me",
+            "/users/me",
             json={"email": admin_user_data["email"]},
         )
 
@@ -317,13 +290,11 @@ class TestUserMe:
     async def test_allows_keeping_same_email_on_update(
         self,
         authenticated_client: httpx.AsyncClient,
-        integration_settings: IntegrationSettings,
-        ensure_test_users: tuple[Any, Any],
         normal_user_data: dict[str, Any],
     ) -> None:
         """Test user can update profile with same email."""
         response = await authenticated_client.patch(
-            f"{integration_settings.API_PATH}/users/me",
+            "/users/me",
             json={
                 "email": normal_user_data["email"],
                 "first_name": "SameEmail",
@@ -343,16 +314,13 @@ class TestUserOperations:
     async def test_gets_user_by_id_as_admin(
         self,
         admin_client: httpx.AsyncClient,
-        integration_settings: IntegrationSettings,
-        ensure_test_users: tuple[Any, Any],
+        ensure_test_users: tuple[User, User],
         normal_user_data: dict[str, Any],
     ) -> None:
         """Test admin retrieves specific user by ID."""
         normal_user, _ = ensure_test_users
 
-        response = await admin_client.get(
-            f"{integration_settings.API_PATH}/users/{normal_user.id}"
-        )
+        response = await admin_client.get(f"/users/{normal_user.id}")
 
         assert response.status_code == 200
         data = response.json()
@@ -364,12 +332,9 @@ class TestUserOperations:
     async def test_raises_not_found_for_nonexistent_user_id(
         self,
         admin_client: httpx.AsyncClient,
-        integration_settings: IntegrationSettings,
     ) -> None:
         """Test 404 error for non-existent user ID."""
-        response = await admin_client.get(
-            f"{integration_settings.API_PATH}/users/999999"
-        )
+        response = await admin_client.get("/users/999999")
 
         assert response.status_code == 404
         data = response.json()
@@ -380,15 +345,12 @@ class TestUserOperations:
     async def test_raises_forbidden_when_non_admin_gets_user(
         self,
         authenticated_client: httpx.AsyncClient,
-        integration_settings: IntegrationSettings,
-        ensure_test_users: tuple[Any, Any],
+        ensure_test_users: tuple[User, User],
     ) -> None:
         """Test non-admin cannot retrieve user by ID."""
         _, admin_user = ensure_test_users
 
-        response = await authenticated_client.get(
-            f"{integration_settings.API_PATH}/users/{admin_user.id}"
-        )
+        response = await authenticated_client.get(f"/users/{admin_user.id}")
 
         assert response.status_code == 403
         data = response.json()
@@ -399,14 +361,13 @@ class TestUserOperations:
     async def test_updates_user_as_admin(
         self,
         admin_client: httpx.AsyncClient,
-        integration_settings: IntegrationSettings,
-        ensure_test_users: tuple[Any, Any],
+        ensure_test_users: tuple[User, User],
     ) -> None:
         """Test admin updates user fields successfully."""
         normal_user, _ = ensure_test_users
 
         response = await admin_client.patch(
-            f"{integration_settings.API_PATH}/users/{normal_user.id}",
+            f"/users/{normal_user.id}",
             json={
                 "first_name": "AdminUpdated",
                 "last_name": "UserName",
@@ -423,14 +384,13 @@ class TestUserOperations:
     async def test_updates_user_role_as_admin(
         self,
         admin_client: httpx.AsyncClient,
-        integration_settings: IntegrationSettings,
-        ensure_test_users: tuple[Any, Any],
+        ensure_test_users: tuple[User, User],
     ) -> None:
         """Test admin modifies user role successfully."""
         normal_user, _ = ensure_test_users
 
         response = await admin_client.patch(
-            f"{integration_settings.API_PATH}/users/{normal_user.id}",
+            f"/users/{normal_user.id}",
             json={"role": "admin"},
         )
 
@@ -443,15 +403,14 @@ class TestUserOperations:
     async def test_raises_conflict_when_updating_to_duplicate_email(
         self,
         admin_client: httpx.AsyncClient,
-        integration_settings: IntegrationSettings,
-        ensure_test_users: tuple[Any, Any],
+        ensure_test_users: tuple[User, User],
         admin_user_data: dict[str, Any],
     ) -> None:
         """Test email uniqueness constraint during update."""
         normal_user, _ = ensure_test_users
 
         response = await admin_client.patch(
-            f"{integration_settings.API_PATH}/users/{normal_user.id}",
+            f"/users/{normal_user.id}",
             json={"email": admin_user_data["email"]},
         )
 
@@ -463,12 +422,10 @@ class TestUserOperations:
     async def test_deletes_user_successfully_as_admin(
         self,
         admin_client: httpx.AsyncClient,
-        integration_settings: IntegrationSettings,
-        ensure_test_users: tuple[Any, Any],
     ) -> None:
         """Test admin deletes user and receives 204 status."""
         create_response = await admin_client.post(
-            f"{integration_settings.API_PATH}/users/",
+            "/users/",
             json={
                 "username": "tobedeleted",
                 "email": "tobedeleted@example.com",
@@ -479,9 +436,7 @@ class TestUserOperations:
         assert create_response.status_code == 201
         user_id = create_response.json()["id"]
 
-        response = await admin_client.delete(
-            f"{integration_settings.API_PATH}/users/{user_id}"
-        )
+        response = await admin_client.delete(f"/users/{user_id}")
 
         assert response.status_code == 204
         assert response.content == b""
@@ -490,12 +445,9 @@ class TestUserOperations:
     async def test_raises_not_found_when_deleting_nonexistent_user(
         self,
         admin_client: httpx.AsyncClient,
-        integration_settings: IntegrationSettings,
     ) -> None:
         """Test 404 error when deleting non-existent user."""
-        response = await admin_client.delete(
-            f"{integration_settings.API_PATH}/users/999999"
-        )
+        response = await admin_client.delete("/users/999999")
 
         assert response.status_code == 404
         data = response.json()
@@ -506,15 +458,12 @@ class TestUserOperations:
     async def test_raises_forbidden_when_non_admin_deletes_user(
         self,
         authenticated_client: httpx.AsyncClient,
-        integration_settings: IntegrationSettings,
-        ensure_test_users: tuple[Any, Any],
+        ensure_test_users: tuple[User, User],
     ) -> None:
         """Test non-admin cannot delete users."""
         _, admin_user = ensure_test_users
 
-        response = await authenticated_client.delete(
-            f"{integration_settings.API_PATH}/users/{admin_user.id}"
-        )
+        response = await authenticated_client.delete(f"/users/{admin_user.id}")
 
         assert response.status_code == 403
         data = response.json()

@@ -23,26 +23,26 @@ settings = get_settings()
 async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
     """Configure logging after uvicorn starts but before handling requests."""
     configure_logging(
-        log_level=settings.LOG.LEVEL,
-        log_file_path=settings.LOG.FILE_PATH,
-        disable_colors=settings.LOG.DISABLE_COLORS,
+        log_level=settings.log.level,
+        log_file_path=settings.log.file_path,
+        disable_colors=settings.log.disable_colors,
     )
     yield
 
 
 app = FastAPI(
-    title=settings.APPLICATION_NAME,
+    title=settings.application_name,
     description="FastAPI template with user management and authentication.",
     version="1.0.0",
-    root_path=settings.API_PATH,
+    root_path=settings.api_path,
     generate_unique_id_function=custom_generate_unique_id,
     lifespan=lifespan,
 )
 
 setup_exception_handlers(app)
 
-if settings.CORS_ORIGINS:
-    origins = [origin.strip() for origin in settings.CORS_ORIGINS]
+if settings.cors_origins:
+    origins = [origin.strip() for origin in settings.cors_origins]
     app.add_middleware(
         CORSMiddleware,
         allow_origins=origins,

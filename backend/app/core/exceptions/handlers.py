@@ -474,7 +474,7 @@ async def http_exception_handler(
 async def general_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Handle unexpected exceptions with secure error reporting."""
     request_id = get_request_id(request)
-    is_development = _get_exception_service().settings.ENVIRONMENT == "development"
+    is_development = _get_exception_service().settings.environment == "development"
 
     _get_exception_service().log_error(
         level="error",
