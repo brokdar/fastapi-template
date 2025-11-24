@@ -13,6 +13,7 @@ from app.core.auth.providers.api_key.exceptions import (
 )
 from app.core.auth.providers.api_key.models import APIKey
 from app.core.auth.providers.api_key.services import APIKeyService
+from app.core.base.repositories.exceptions import RepositoryOperationError
 from app.core.security.hasher import BCryptAPIKeyService
 from tests.unit.core.auth.providers.api_key.conftest import (
     VALID_TEST_KEY,
@@ -234,7 +235,6 @@ class TestValidateKey:
         self,
         api_key_service: APIKeyService,
         mock_repository: AsyncMock,
-        mock_hasher: Mock,
     ) -> None:
         """Test validate_key returns user_id and key_id for valid key."""
         api_key = APIKey(
@@ -307,3 +307,32 @@ class TestValidateKey:
 
         with pytest.raises(InvalidAPIKeyError, match="API key verification failed"):
             await api_key_service.validate_key(VALID_TEST_KEY)
+
+    @pytest.mark.asyncio
+    async def test_succeeds_when_update_last_used_fails(
+        self,
+        api_key_service: APIKeyService,
+        mock_repository: AsyncMock,
+    ) -> None:
+        """Test validate_key succeeds even when last_used update fails."""
+        api_key = APIKey(
+            id=1,
+            user_id=42,
+            key_hash="$2b$12$hash",
+            key_prefix=VALID_TEST_KEY_PREFIX,
+            name="Test",
+            expires_at=datetime.now(UTC) + timedelta(days=30),
+        )
+        mock_repository.get_by_prefix = AsyncMock(return_value=api_key)
+        mock_repository.update_last_used = AsyncMock(
+            side_effect=RepositoryOperationError(
+                operation="update_last_used",
+                entity_type="APIKey",
+                original_error=RuntimeError("Database connection lost"),
+            )
+        )
+
+        user_id, key_id = await api_key_service.validate_key(VALID_TEST_KEY)
+
+        assert user_id == 42
+        assert key_id == 1

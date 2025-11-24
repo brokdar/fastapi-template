@@ -8,6 +8,7 @@ from datetime import UTC, datetime, timedelta
 
 import structlog
 
+from app.core.base.repositories.exceptions import RepositoryError
 from app.core.security.hasher import APIKeyHasher
 
 from .exceptions import (
@@ -205,7 +206,7 @@ class APIKeyService:
         if api_key.id is None:
             raise InvalidAPIKeyError("API key from database is missing ID")
 
-        await self._repository.update_last_used(api_key.id)
+        await self._update_last_used_safely(api_key.id)
 
         self.logger.info(
             "api_key_validated",
@@ -238,3 +239,22 @@ class APIKeyService:
             return True
         except ValueError:
             return False
+
+    async def _update_last_used_safely(self, key_id: int) -> None:
+        """Update last_used_at timestamp without failing authentication.
+
+        This is a best-effort operation. Database failures are logged but not
+        propagated, as tracking usage is secondary to authentication success.
+
+        Args:
+            key_id: ID of the API key to update.
+        """
+        try:
+            await self._repository.update_last_used(key_id)
+        except RepositoryError as e:
+            self.logger.warning(
+                "api_key_last_used_update_failed",
+                key_id=key_id,
+                error=str(e),
+                error_type=type(e).__name__,
+            )
