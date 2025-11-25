@@ -6,7 +6,6 @@ refresh token support, including token rotation for enhanced security.
 
 from datetime import UTC, datetime, timedelta
 from typing import Any
-from uuid import UUID
 
 import jwt
 import structlog
@@ -27,7 +26,7 @@ from app.domains.users.models import User
 logger = structlog.get_logger("auth.provider.jwt")
 
 
-class JWTAuthProvider[ID: (int, UUID)](AuthProvider[ID]):
+class JWTAuthProvider(AuthProvider):
     """JWT authentication provider implementing RFC 7519 specification.
 
     Provides stateless authentication using JSON Web Tokens with support for
@@ -179,8 +178,7 @@ class JWTAuthProvider[ID: (int, UUID)](AuthProvider[ID]):
         7. Extracts and returns user ID string from sub claim
 
         Note: Returns string representation of user ID. The calling code
-        (authenticate method) is responsible for parsing the string to the
-        appropriate typed ID using user_service.parse_id().
+        (authenticate method) is responsible for parsing the string to int.
 
         Args:
             token: JWT token string to verify.
@@ -249,7 +247,7 @@ class JWTAuthProvider[ID: (int, UUID)](AuthProvider[ID]):
         return len(parts) == 2 and parts[0].lower() == "bearer"
 
     async def authenticate(
-        self, request: Request, user_service: AuthenticationUserService[ID]
+        self, request: Request, user_service: AuthenticationUserService
     ) -> User | None:
         """Authenticate request using JWT access token.
 
@@ -285,8 +283,8 @@ class JWTAuthProvider[ID: (int, UUID)](AuthProvider[ID]):
             return None
 
         try:
-            user_id = user_service.parse_id(user_id_str)
-        except Exception as e:
+            user_id = int(user_id_str)
+        except ValueError as e:
             logger.warning(
                 "authentication_failed",
                 reason="invalid_user_id_in_token",

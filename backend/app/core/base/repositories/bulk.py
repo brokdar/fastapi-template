@@ -13,11 +13,10 @@ References:
 from __future__ import annotations
 
 from typing import Any, cast
-from uuid import UUID
 
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.dialects.postgresql.dml import Insert as PostgreSQLInsert
-from sqlmodel import delete, select
+from sqlmodel import col, delete, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.base.models import BaseModel
@@ -25,7 +24,7 @@ from app.core.base.models import BaseModel
 from .exceptions import handle_repository_errors
 
 
-class BulkOperationsMixin[T: BaseModel[Any], ID: int | UUID]:
+class BulkOperationsMixin[T: BaseModel]:
     """Mixin class providing bulk operations for repository classes.
 
     This mixin adds bulk_create, bulk_delete, and bulk_upsert operations
@@ -87,20 +86,20 @@ class BulkOperationsMixin[T: BaseModel[Any], ID: int | UUID]:
         if created_items:
             # Batch refresh: 1 query instead of N refresh() calls
             # populate_existing updates objects in session's identity map
-            id_field = self.model_class.id
-            if id_field is not None:
-                refresh_stmt = (
-                    select(self.model_class)
-                    .where(id_field.in_([item.id for item in created_items]))
-                    .execution_options(populate_existing=True)
+            refresh_stmt = (
+                select(self.model_class)
+                .where(
+                    col(self.model_class.id).in_([item.id for item in created_items])
                 )
-                # execute() required for execution_options (populate_existing)
-                await self._session.execute(refresh_stmt)
+                .execution_options(populate_existing=True)
+            )
+            # execute() required for execution_options (populate_existing)
+            await self._session.execute(refresh_stmt)
 
         return created_items
 
     @handle_repository_errors()
-    async def bulk_delete(self, ids: list[ID]) -> None:
+    async def bulk_delete(self, ids: list[int]) -> None:
         """Delete multiple model instances by their IDs.
 
         Args:
@@ -114,11 +113,9 @@ class BulkOperationsMixin[T: BaseModel[Any], ID: int | UUID]:
         if not ids:
             return
 
-        id_field = self.model_class.id
-        if id_field is not None:
-            stmt = delete(self.model_class).where(id_field.in_(ids))
-            # execute() appropriate for DELETE (no scalars returned)
-            await self._session.execute(stmt)
+        stmt = delete(self.model_class).where(col(self.model_class.id).in_(ids))
+        # execute() appropriate for DELETE (no scalars returned)
+        await self._session.execute(stmt)
 
         await self._session.commit()
 
@@ -184,14 +181,14 @@ class BulkOperationsMixin[T: BaseModel[Any], ID: int | UUID]:
 
         if upserted_items:
             # Batch refresh: critical for upserts to update existing objects in identity map
-            id_field = self.model_class.id
-            if id_field is not None:
-                refresh_stmt = (
-                    select(self.model_class)
-                    .where(id_field.in_([item.id for item in upserted_items]))
-                    .execution_options(populate_existing=True)
+            refresh_stmt = (
+                select(self.model_class)
+                .where(
+                    col(self.model_class.id).in_([item.id for item in upserted_items])
                 )
-                # execute() required for execution_options (populate_existing)
-                await self._session.execute(refresh_stmt)
+                .execution_options(populate_existing=True)
+            )
+            # execute() required for execution_options (populate_existing)
+            await self._session.execute(refresh_stmt)
 
         return upserted_items

@@ -1,7 +1,5 @@
 """Generic base repository with strictly typed pagination validation."""
 
-from uuid import UUID
-
 from sqlalchemy.sql.expression import ColumnElement
 from sqlmodel import func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -15,12 +13,11 @@ from .exceptions import (
 )
 
 
-class BaseRepository[T: BaseModel[int] | BaseModel[UUID], ID: int | UUID]:
-    """Generic base repository for CRUD operations on models with configurable ID types.
+class BaseRepository[T: BaseModel]:
+    """Generic base repository for CRUD operations on models.
 
-    This repository provides type-safe CRUD operations that automatically infer
-    the ID type from the model class. Models extending from IntModel will use int IDs,
-    while models extending from UUIDModel will use UUID IDs.
+    This repository provides type-safe CRUD operations for models
+    extending from BaseModel with integer IDs.
     """
 
     def __init__(self, session: AsyncSession, model_class: type[T]) -> None:
@@ -34,11 +31,11 @@ class BaseRepository[T: BaseModel[int] | BaseModel[UUID], ID: int | UUID]:
         self.model_class = model_class
 
     @handle_repository_errors()
-    async def get_by_id(self, id: ID) -> T | None:
+    async def get_by_id(self, id: int) -> T | None:
         """Retrieve a model instance by its ID.
 
         Args:
-            id: The ID of the model to retrieve (type matches model's ID type)
+            id: The ID of the model to retrieve
 
         Returns:
             The model instance if found, None otherwise
@@ -141,11 +138,11 @@ class BaseRepository[T: BaseModel[int] | BaseModel[UUID], ID: int | UUID]:
         return item
 
     @handle_repository_errors()
-    async def delete(self, id: ID) -> None:
+    async def delete(self, id: int) -> None:
         """Delete a model instance by its ID.
 
         Args:
-            id: The ID of the model to delete (type matches model's ID type)
+            id: The ID of the model to delete
 
         Raises:
             EntityNotFoundError: If the entity with the given ID doesn't exist

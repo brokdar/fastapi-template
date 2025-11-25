@@ -6,12 +6,11 @@ minimal interface they need, not the full user service implementation.
 """
 
 from typing import Protocol
-from uuid import UUID
 
 from app.domains.users.models import User
 
 
-class AuthenticationUserService[ID: (int, UUID)](Protocol):
+class AuthenticationUserService(Protocol):
     """Minimal user service interface for authentication operations.
 
     This protocol defines the user-related operations required by authentication
@@ -37,29 +36,7 @@ class AuthenticationUserService[ID: (int, UUID)](Protocol):
         verify_password: Verify user password (for credential authentication).
     """
 
-    def parse_id(self, value: str) -> ID:
-        """Parse string ID from token to typed ID.
-
-        This method converts string representations of IDs (from JWT tokens,
-        session data, etc.) into properly typed ID instances. Implementation
-        is provided by ID parsing mixins (IntIDMixin, UUIDIDMixin) composed
-        with the service class.
-
-        Used by authentication providers to convert string IDs extracted from
-        tokens into the correct typed IDs for database lookups.
-
-        Args:
-            value: String representation of user ID.
-
-        Returns:
-            Typed ID instance (int, UUID, etc.).
-
-        Raises:
-            InvalidUserIDError: If ID format is invalid for the expected type.
-        """
-        ...
-
-    async def get_by_id(self, user_id: ID) -> User:
+    async def get_by_id(self, user_id: int) -> User:
         """Retrieve user by ID.
 
         Used by token-based authentication providers to lookup users

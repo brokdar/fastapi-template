@@ -8,10 +8,10 @@ from datetime import UTC, datetime
 from sqlalchemy import Column, DateTime, text
 from sqlmodel import Field
 
-from app.core.base.models import IntModel
+from app.core.base.models import BaseModel
 
 
-class APIKey(IntModel, table=True):
+class APIKey(BaseModel, table=True):
     """Database model for storing API keys."""
 
     user_id: int = Field(foreign_key="user.id", index=True, nullable=False)

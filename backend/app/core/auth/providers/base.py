@@ -1,5 +1,4 @@
 from typing import Protocol
-from uuid import UUID
 
 from fastapi import APIRouter, Request
 from fastapi.security.base import SecurityBase
@@ -8,7 +7,7 @@ from app.core.auth.protocols import AuthenticationUserService
 from app.domains.users.models import User
 
 
-class AuthProvider[ID: (int, UUID)](Protocol):
+class AuthProvider(Protocol):
     """Protocol defining the interface for authentication providers.
 
     Authentication providers implement different authentication mechanisms
@@ -34,7 +33,7 @@ class AuthProvider[ID: (int, UUID)](Protocol):
         ...
 
     async def authenticate(
-        self, request: Request, user_service: AuthenticationUserService[ID]
+        self, request: Request, user_service: AuthenticationUserService
     ) -> User | None:
         """Authenticates the request and returns the authenticated user.
 

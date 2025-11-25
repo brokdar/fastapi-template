@@ -16,7 +16,7 @@ from app.core.base.repositories.exceptions import handle_repository_errors
 from .models import APIKey
 
 
-class APIKeyRepository(BaseRepository[APIKey, int]):
+class APIKeyRepository(BaseRepository[APIKey]):
     """Repository for API key data access operations."""
 
     def __init__(self, session: AsyncSession) -> None:

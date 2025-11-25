@@ -3,7 +3,6 @@
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from unittest.mock import AsyncMock, Mock
-from uuid import UUID
 
 import jwt
 import pytest
@@ -17,7 +16,7 @@ from app.core.auth.exceptions import (
 )
 from app.core.auth.providers.jwt.provider import JWTAuthProvider
 from app.core.auth.providers.jwt.schemas import TokenResponse
-from app.domains.users.exceptions import InvalidUserIDError, UserNotFoundError
+from app.domains.users.exceptions import UserNotFoundError
 from app.domains.users.models import User
 
 
@@ -94,7 +93,7 @@ class TestTokenCreation:
     """Test suite for JWT token creation methods."""
 
     def test_create_access_token_returns_valid_jwt(
-        self, jwt_provider: JWTAuthProvider[int]
+        self, jwt_provider: JWTAuthProvider
     ) -> None:
         """Test access token creation returns decodable JWT."""
         token = jwt_provider.create_access_token("123")
@@ -109,7 +108,7 @@ class TestTokenCreation:
         assert payload["type"] == "access"
 
     def test_create_refresh_token_returns_valid_jwt(
-        self, jwt_provider: JWTAuthProvider[int]
+        self, jwt_provider: JWTAuthProvider
     ) -> None:
         """Test refresh token creation returns decodable JWT."""
         token = jwt_provider.create_refresh_token("456")
@@ -122,7 +121,7 @@ class TestTokenCreation:
         assert payload["type"] == "refresh"
 
     def test_creates_access_token_with_correct_expiration(
-        self, jwt_provider: JWTAuthProvider[int]
+        self, jwt_provider: JWTAuthProvider
     ) -> None:
         """Test access token expiration is set correctly."""
         now = datetime.now(UTC)
@@ -138,7 +137,7 @@ class TestTokenCreation:
         assert time_diff < 2
 
     def test_creates_refresh_token_with_correct_expiration(
-        self, jwt_provider: JWTAuthProvider[int]
+        self, jwt_provider: JWTAuthProvider
     ) -> None:
         """Test refresh token expiration is set correctly."""
         now = datetime.now(UTC)
@@ -154,7 +153,7 @@ class TestTokenCreation:
         assert time_diff < 2
 
     def test_creates_token_with_required_claims(
-        self, jwt_provider: JWTAuthProvider[int]
+        self, jwt_provider: JWTAuthProvider
     ) -> None:
         """Test token includes all required RFC 7519 claims."""
         token = jwt_provider.create_access_token("1")
@@ -168,7 +167,7 @@ class TestTokenCreation:
         assert "type" in payload
 
     def test_creates_token_with_different_user_ids(
-        self, jwt_provider: JWTAuthProvider[int]
+        self, jwt_provider: JWTAuthProvider
     ) -> None:
         """Test tokens can be created for different user IDs."""
         token1 = jwt_provider.create_access_token("100")
@@ -189,7 +188,7 @@ class TestTokenResponse:
     """Test suite for token response creation."""
 
     def test_create_token_response_includes_both_tokens(
-        self, jwt_provider: JWTAuthProvider[int]
+        self, jwt_provider: JWTAuthProvider
     ) -> None:
         """Test token response contains access and refresh tokens."""
         response = jwt_provider.create_token_response("1")
@@ -200,7 +199,7 @@ class TestTokenResponse:
         assert response.access_token != response.refresh_token
 
     def test_create_token_response_has_correct_structure(
-        self, jwt_provider: JWTAuthProvider[int]
+        self, jwt_provider: JWTAuthProvider
     ) -> None:
         """Test token response follows OAuth2 specification."""
         response = jwt_provider.create_token_response("1")
@@ -211,7 +210,7 @@ class TestTokenResponse:
         assert isinstance(response.refresh_token, str)
 
     def test_create_token_response_calculates_expires_in_correctly(
-        self, jwt_provider: JWTAuthProvider[int]
+        self, jwt_provider: JWTAuthProvider
     ) -> None:
         """Test expires_in field matches access token expiration."""
         response = jwt_provider.create_token_response("1")
@@ -225,7 +224,7 @@ class TestTokenVerification:
 
     def test_verify_token_returns_user_id_for_valid_access_token(
         self,
-        jwt_provider: JWTAuthProvider[int],
+        jwt_provider: JWTAuthProvider,
         valid_access_token: str,
     ) -> None:
         """Test verification returns user ID for valid token."""
@@ -235,7 +234,7 @@ class TestTokenVerification:
 
     def test_verify_token_returns_user_id_for_valid_refresh_token(
         self,
-        jwt_provider: JWTAuthProvider[int],
+        jwt_provider: JWTAuthProvider,
         valid_refresh_token: str,
     ) -> None:
         """Test verification returns user ID for valid refresh token."""
@@ -247,7 +246,7 @@ class TestTokenVerification:
 
     def test_raises_token_expired_error_when_token_expired(
         self,
-        jwt_provider: JWTAuthProvider[int],
+        jwt_provider: JWTAuthProvider,
         expired_token: str,
     ) -> None:
         """Test TokenExpiredError is raised for expired token."""
@@ -256,7 +255,7 @@ class TestTokenVerification:
 
     def test_raises_invalid_token_error_when_token_malformed(
         self,
-        jwt_provider: JWTAuthProvider[int],
+        jwt_provider: JWTAuthProvider,
         malformed_token: str,
     ) -> None:
         """Test InvalidTokenError is raised for malformed token."""
@@ -265,7 +264,7 @@ class TestTokenVerification:
 
     def test_raises_invalid_token_error_when_signature_invalid(
         self,
-        jwt_provider: JWTAuthProvider[int],
+        jwt_provider: JWTAuthProvider,
         token_with_invalid_signature: str,
     ) -> None:
         """Test InvalidTokenError is raised for invalid signature."""
@@ -276,7 +275,7 @@ class TestTokenVerification:
 
     def test_raises_invalid_token_error_when_token_type_mismatch(
         self,
-        jwt_provider: JWTAuthProvider[int],
+        jwt_provider: JWTAuthProvider,
         valid_access_token: str,
     ) -> None:
         """Test InvalidTokenError is raised when token type doesn't match expected."""
@@ -287,7 +286,7 @@ class TestTokenVerification:
 
     def test_raises_invalid_token_error_when_required_claims_missing(
         self,
-        jwt_provider: JWTAuthProvider[int],
+        jwt_provider: JWTAuthProvider,
         secret_key: str,
     ) -> None:
         """Test InvalidTokenError is raised when required claims are missing."""
@@ -319,7 +318,7 @@ class TestCanAuthenticate:
 
     def test_can_authenticate_returns_true_for_bearer_token(
         self,
-        jwt_provider: JWTAuthProvider[int],
+        jwt_provider: JWTAuthProvider,
         mock_request_with_bearer_token: Mock,
     ) -> None:
         """Test can_authenticate returns True for valid Bearer token."""
@@ -329,7 +328,7 @@ class TestCanAuthenticate:
 
     def test_can_authenticate_returns_false_for_missing_header(
         self,
-        jwt_provider: JWTAuthProvider[int],
+        jwt_provider: JWTAuthProvider,
         mock_request_without_token: Mock,
     ) -> None:
         """Test can_authenticate returns False when Authorization header is missing."""
@@ -344,7 +343,7 @@ class TestCanAuthenticate:
     )
     def test_can_authenticate_returns_false_for_invalid_format(
         self,
-        jwt_provider: JWTAuthProvider[int],
+        jwt_provider: JWTAuthProvider,
         auth_header: str,
     ) -> None:
         """Test can_authenticate returns False for various invalid formats."""
@@ -362,7 +361,7 @@ class TestAuthenticate:
     @pytest.mark.asyncio
     async def test_authenticate_returns_user_for_valid_token(
         self,
-        jwt_provider: JWTAuthProvider[int],
+        jwt_provider: JWTAuthProvider,
         mock_user_service: AsyncMock,
         sample_user: User,
     ) -> None:
@@ -376,13 +375,12 @@ class TestAuthenticate:
         result = await jwt_provider.authenticate(request, mock_user_service)
 
         assert result == sample_user
-        mock_user_service.parse_id.assert_called_once_with(str(sample_user.id))
         mock_user_service.get_by_id.assert_called_once_with(sample_user.id)
 
     @pytest.mark.asyncio
     async def test_authenticate_returns_none_for_missing_token(
         self,
-        jwt_provider: JWTAuthProvider[int],
+        jwt_provider: JWTAuthProvider,
         mock_user_service: AsyncMock,
         mock_request_without_token: Mock,
     ) -> None:
@@ -397,7 +395,7 @@ class TestAuthenticate:
     @pytest.mark.asyncio
     async def test_authenticate_returns_none_for_invalid_token(
         self,
-        jwt_provider: JWTAuthProvider[int],
+        jwt_provider: JWTAuthProvider,
         mock_user_service: AsyncMock,
         malformed_token: str,
     ) -> None:
@@ -413,7 +411,7 @@ class TestAuthenticate:
     @pytest.mark.asyncio
     async def test_authenticate_returns_none_for_expired_token(
         self,
-        jwt_provider: JWTAuthProvider[int],
+        jwt_provider: JWTAuthProvider,
         mock_user_service: AsyncMock,
         expired_token: str,
     ) -> None:
@@ -429,15 +427,13 @@ class TestAuthenticate:
     @pytest.mark.asyncio
     async def test_raises_invalid_token_error_when_user_id_invalid(
         self,
-        jwt_provider: JWTAuthProvider[int],
+        jwt_provider: JWTAuthProvider,
         mock_user_service: AsyncMock,
     ) -> None:
         """Test InvalidTokenError is raised when user ID cannot be parsed."""
         token = jwt_provider.create_access_token("invalid_id")
         request = Mock(spec=Request)
         request.headers.get.return_value = f"Bearer {token}"
-
-        mock_user_service.parse_id.side_effect = InvalidUserIDError("Invalid ID format")
 
         with pytest.raises(
             InvalidTokenError, match="Invalid user ID in token: 'invalid_id'"
@@ -447,7 +443,7 @@ class TestAuthenticate:
     @pytest.mark.asyncio
     async def test_returns_none_when_user_not_found(
         self,
-        jwt_provider: JWTAuthProvider[int],
+        jwt_provider: JWTAuthProvider,
         mock_user_service: AsyncMock,
     ) -> None:
         """Test authenticate returns None when user doesn't exist."""
@@ -464,7 +460,7 @@ class TestAuthenticate:
     @pytest.mark.asyncio
     async def test_returns_none_when_user_inactive(
         self,
-        jwt_provider: JWTAuthProvider[int],
+        jwt_provider: JWTAuthProvider,
         mock_user_service: AsyncMock,
         inactive_user: User,
     ) -> None:
@@ -479,40 +475,13 @@ class TestAuthenticate:
 
         assert result is None
 
-    @pytest.mark.asyncio
-    async def test_authenticate_with_uuid_user_id(
-        self,
-        uuid_jwt_provider: JWTAuthProvider[UUID],
-        uuid_mock_user_service: AsyncMock,
-    ) -> None:
-        """Test authentication works with UUID user IDs."""
-        user_uuid = UUID("12345678-1234-5678-1234-567812345678")
-        user = User(
-            id=user_uuid,
-            username="testuser",
-            email="test@example.com",
-            hashed_password="hash",
-            is_active=True,
-        )
-
-        token = uuid_jwt_provider.create_access_token(str(user_uuid))
-        request = Mock(spec=Request)
-        request.headers.get.return_value = f"Bearer {token}"
-
-        uuid_mock_user_service.get_by_id.return_value = user
-
-        result = await uuid_jwt_provider.authenticate(request, uuid_mock_user_service)
-
-        assert result == user
-        uuid_mock_user_service.parse_id.assert_called_once_with(str(user_uuid))
-
 
 class TestSecurityScheme:
     """Test suite for security scheme configuration."""
 
     def test_get_security_scheme_returns_oauth2_password_bearer(
         self,
-        jwt_provider: JWTAuthProvider[int],
+        jwt_provider: JWTAuthProvider,
     ) -> None:
         """Test get_security_scheme returns OAuth2PasswordBearer instance."""
         scheme = jwt_provider.get_security_scheme()
@@ -521,7 +490,7 @@ class TestSecurityScheme:
 
     def test_get_security_scheme_has_correct_token_url(
         self,
-        jwt_provider: JWTAuthProvider[int],
+        jwt_provider: JWTAuthProvider,
     ) -> None:
         """Test security scheme has correct token URL for OpenAPI."""
         scheme = jwt_provider.get_security_scheme()
@@ -534,9 +503,7 @@ class TestSecurityScheme:
 class TestRouterGeneration:
     """Test suite for router generation."""
 
-    def test_get_router_returns_api_router(
-        self, jwt_provider: JWTAuthProvider[int]
-    ) -> None:
+    def test_get_router_returns_api_router(self, jwt_provider: JWTAuthProvider) -> None:
         """Test get_router returns APIRouter instance."""
         from fastapi import APIRouter
 
@@ -544,9 +511,7 @@ class TestRouterGeneration:
 
         assert isinstance(router, APIRouter)
 
-    def test_get_router_has_jwt_prefix(
-        self, jwt_provider: JWTAuthProvider[int]
-    ) -> None:
+    def test_get_router_has_jwt_prefix(self, jwt_provider: JWTAuthProvider) -> None:
         """Test router has correct prefix."""
         router = jwt_provider.get_router()
 

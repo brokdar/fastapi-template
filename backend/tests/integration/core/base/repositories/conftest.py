@@ -2,7 +2,6 @@
 
 from collections.abc import AsyncGenerator
 from typing import Any
-from uuid import UUID, uuid4
 
 import pytest
 from sqlalchemy import UniqueConstraint
@@ -10,12 +9,12 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 from sqlmodel import Field
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.core.base.models import IntModel, UUIDModel
+from app.core.base.models import BaseModel
 from app.core.base.repositories.base import BaseRepository
 from app.core.base.repositories.bulk import BulkOperationsMixin
 
 
-class ProductModel(IntModel, table=True):
+class ProductModel(BaseModel, table=True):
     """Test model with integer ID for integration testing."""
 
     __tablename__ = "test_products"
@@ -27,20 +26,19 @@ class ProductModel(IntModel, table=True):
     in_stock: bool = Field(default=True)
 
 
-class ArticleModel(UUIDModel, table=True):
-    """Test model with UUID ID for integration testing."""
+class ArticleModel(BaseModel, table=True):
+    """Test model for integration testing."""
 
     __tablename__ = "test_articles"
     __table_args__ = {"extend_existing": True}
 
-    id: UUID | None = Field(default_factory=uuid4, primary_key=True)
     title: str = Field(unique=True)
     content: str
     author: str | None = Field(default=None)
     published: bool = Field(default=False)
 
 
-class CustomerModel(IntModel, table=True):
+class CustomerModel(BaseModel, table=True):
     """Test model with unique constraint for integrity testing."""
 
     __tablename__ = "test_customers"
@@ -54,7 +52,7 @@ class CustomerModel(IntModel, table=True):
     full_name: str
 
 
-class OrderModel(IntModel, table=True):
+class OrderModel(BaseModel, table=True):
     """Test model with foreign key for relationship testing."""
 
     __tablename__ = "test_orders"
@@ -65,20 +63,20 @@ class OrderModel(IntModel, table=True):
     status: str = Field(default="pending")
 
 
-class IntRepositoryWithBulk(
-    BaseRepository[ProductModel, int], BulkOperationsMixin[ProductModel, int]
+class ProductRepositoryWithBulk(
+    BaseRepository[ProductModel], BulkOperationsMixin[ProductModel]
 ):
-    """Repository combining BaseRepository with BulkOperationsMixin for int IDs."""
+    """Repository combining BaseRepository with BulkOperationsMixin."""
 
 
-class UUIDRepositoryWithBulk(
-    BaseRepository[ArticleModel, UUID], BulkOperationsMixin[ArticleModel, UUID]
+class ArticleRepositoryWithBulk(
+    BaseRepository[ArticleModel], BulkOperationsMixin[ArticleModel]
 ):
-    """Repository combining BaseRepository with BulkOperationsMixin for UUID IDs."""
+    """Repository combining BaseRepository with BulkOperationsMixin."""
 
 
 class CustomerRepositoryWithBulk(
-    BaseRepository[CustomerModel, int], BulkOperationsMixin[CustomerModel, int]
+    BaseRepository[CustomerModel], BulkOperationsMixin[CustomerModel]
 ):
     """Repository with bulk operations for CustomerModel with unique constraints."""
 
@@ -116,49 +114,49 @@ async def cleanup_test_tables(
 @pytest.fixture
 async def product_repository(
     test_session: AsyncSession,
-) -> BaseRepository[ProductModel, int]:
+) -> BaseRepository[ProductModel]:
     """Provide BaseRepository for ProductModel."""
-    return BaseRepository[ProductModel, int](test_session, ProductModel)
+    return BaseRepository[ProductModel](test_session, ProductModel)
 
 
 @pytest.fixture
 async def article_repository(
     test_session: AsyncSession,
-) -> BaseRepository[ArticleModel, UUID]:
+) -> BaseRepository[ArticleModel]:
     """Provide BaseRepository for ArticleModel."""
-    return BaseRepository[ArticleModel, UUID](test_session, ArticleModel)
+    return BaseRepository[ArticleModel](test_session, ArticleModel)
 
 
 @pytest.fixture
 async def customer_repository(
     test_session: AsyncSession,
-) -> BaseRepository[CustomerModel, int]:
+) -> BaseRepository[CustomerModel]:
     """Provide BaseRepository for CustomerModel."""
-    return BaseRepository[CustomerModel, int](test_session, CustomerModel)
+    return BaseRepository[CustomerModel](test_session, CustomerModel)
 
 
 @pytest.fixture
 async def order_repository(
     test_session: AsyncSession,
-) -> BaseRepository[OrderModel, int]:
+) -> BaseRepository[OrderModel]:
     """Provide BaseRepository for OrderModel."""
-    return BaseRepository[OrderModel, int](test_session, OrderModel)
+    return BaseRepository[OrderModel](test_session, OrderModel)
 
 
 @pytest.fixture
-async def int_bulk_repository(
+async def product_bulk_repository(
     test_session: AsyncSession,
-) -> IntRepositoryWithBulk:
+) -> ProductRepositoryWithBulk:
     """Provide repository with bulk operations for ProductModel."""
-    return IntRepositoryWithBulk(test_session, ProductModel)
+    return ProductRepositoryWithBulk(test_session, ProductModel)
 
 
 @pytest.fixture
-async def uuid_bulk_repository(
+async def article_bulk_repository(
     test_session: AsyncSession,
-) -> UUIDRepositoryWithBulk:
+) -> ArticleRepositoryWithBulk:
     """Provide repository with bulk operations for ArticleModel."""
-    return UUIDRepositoryWithBulk(test_session, ArticleModel)
+    return ArticleRepositoryWithBulk(test_session, ArticleModel)
 
 
 @pytest.fixture
@@ -203,7 +201,7 @@ def sample_customer_data() -> dict[str, Any]:
 
 @pytest.fixture
 async def created_product(
-    product_repository: BaseRepository[ProductModel, int],
+    product_repository: BaseRepository[ProductModel],
     sample_product_data: dict[str, Any],
 ) -> ProductModel:
     """Provide a pre-created product for tests."""
@@ -213,7 +211,7 @@ async def created_product(
 
 @pytest.fixture
 async def created_article(
-    article_repository: BaseRepository[ArticleModel, UUID],
+    article_repository: BaseRepository[ArticleModel],
     sample_article_data: dict[str, Any],
 ) -> ArticleModel:
     """Provide a pre-created article for tests."""
@@ -223,7 +221,7 @@ async def created_article(
 
 @pytest.fixture
 async def created_customer(
-    customer_repository: BaseRepository[CustomerModel, int],
+    customer_repository: BaseRepository[CustomerModel],
     sample_customer_data: dict[str, Any],
 ) -> CustomerModel:
     """Provide a pre-created customer for tests."""
@@ -233,7 +231,7 @@ async def created_customer(
 
 @pytest.fixture
 async def multiple_products(
-    product_repository: BaseRepository[ProductModel, int],
+    product_repository: BaseRepository[ProductModel],
 ) -> list[ProductModel]:
     """Provide multiple products for pagination and filter testing."""
     products = [
@@ -250,7 +248,7 @@ async def multiple_products(
 
 @pytest.fixture
 async def multiple_articles(
-    article_repository: BaseRepository[ArticleModel, UUID],
+    article_repository: BaseRepository[ArticleModel],
 ) -> list[ArticleModel]:
     """Provide multiple articles for pagination and filter testing."""
     articles = [
@@ -263,15 +261,3 @@ async def multiple_articles(
         for i in range(1, 16)
     ]
     return [await article_repository.create(a) for a in articles]
-
-
-@pytest.fixture
-def sample_uuid_1() -> UUID:
-    """Provide first sample UUID for testing."""
-    return UUID("12345678-1234-5678-1234-567812345678")
-
-
-@pytest.fixture
-def sample_uuid_2() -> UUID:
-    """Provide second sample UUID for testing."""
-    return UUID("87654321-4321-8765-4321-876543218765")

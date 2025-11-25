@@ -5,7 +5,6 @@ Types are inferred from dependencies.py configuration.
 """
 
 from typing import Annotated
-from uuid import UUID
 
 import structlog
 from fastapi import APIRouter, Depends
@@ -21,12 +20,8 @@ from app.domains.users.services import UserService
 logger = structlog.get_logger("auth.provider.jwt.router")
 
 
-def create_jwt_router[ID: (int, UUID)](provider: JWTAuthProvider[ID]) -> APIRouter:
+def create_jwt_router(provider: JWTAuthProvider) -> APIRouter:
     """Create JWT router with provider instance bound via closure.
-
-    The ID type is inferred from the provider parameter. The router uses
-    get_user_service from dependencies.py which must return UserService[ID]
-    matching the provider's ID type.
 
     Args:
         provider: JWT authentication provider instance.
@@ -44,7 +39,7 @@ def create_jwt_router[ID: (int, UUID)](provider: JWTAuthProvider[ID]) -> APIRout
     )
     async def login(
         form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
-        user_service: UserService[ID] = Depends(get_user_service),
+        user_service: UserService = Depends(get_user_service),
     ) -> TokenResponse:
         """Authenticate user and return JWT tokens.
 
@@ -108,7 +103,7 @@ def create_jwt_router[ID: (int, UUID)](provider: JWTAuthProvider[ID]) -> APIRout
     )
     async def refresh(
         request: RefreshTokenRequest,
-        user_service: UserService[ID] = Depends(get_user_service),
+        user_service: UserService = Depends(get_user_service),
     ) -> TokenResponse:
         """Refresh access token using refresh token.
 
@@ -131,7 +126,7 @@ def create_jwt_router[ID: (int, UUID)](provider: JWTAuthProvider[ID]) -> APIRout
         user_id_str = provider.verify_token(
             request.refresh_token, expected_type="refresh"
         )
-        user_id = user_service.parse_id(user_id_str)
+        user_id = int(user_id_str)
 
         user = await user_service.get_by_id(user_id)
 

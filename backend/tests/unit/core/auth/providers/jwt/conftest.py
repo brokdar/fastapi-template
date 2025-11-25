@@ -3,7 +3,6 @@
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from unittest.mock import AsyncMock, Mock
-from uuid import UUID
 
 import jwt
 import pytest
@@ -20,7 +19,7 @@ def secret_key() -> str:
 
 
 @pytest.fixture
-def jwt_provider(secret_key: str) -> JWTAuthProvider[int]:
+def jwt_provider(secret_key: str) -> JWTAuthProvider:
     """Provide JWTAuthProvider instance with default settings."""
     return JWTAuthProvider(
         secret_key=secret_key,
@@ -57,9 +56,7 @@ def inactive_user() -> User:
 @pytest.fixture
 def mock_user_service() -> AsyncMock:
     """Provide mocked AuthenticationUserService."""
-    service = AsyncMock()
-    service.parse_id = Mock(side_effect=lambda x: int(x))
-    return service
+    return AsyncMock()
 
 
 @pytest.fixture
@@ -79,13 +76,13 @@ def mock_request_without_token() -> Mock:
 
 
 @pytest.fixture
-def valid_access_token(jwt_provider: JWTAuthProvider[int]) -> str:
+def valid_access_token(jwt_provider: JWTAuthProvider) -> str:
     """Provide valid access token for testing."""
     return jwt_provider.create_access_token("1")
 
 
 @pytest.fixture
-def valid_refresh_token(jwt_provider: JWTAuthProvider[int]) -> str:
+def valid_refresh_token(jwt_provider: JWTAuthProvider) -> str:
     """Provide valid refresh token for testing."""
     return jwt_provider.create_refresh_token("1")
 
@@ -126,22 +123,3 @@ def token_with_invalid_signature(secret_key: str) -> str:
     }
 
     return jwt.encode(payload, "wrong_secret_key", algorithm="HS256")
-
-
-@pytest.fixture
-def uuid_jwt_provider(secret_key: str) -> JWTAuthProvider[UUID]:
-    """Provide JWTAuthProvider instance with UUID ID type."""
-    return JWTAuthProvider[UUID](
-        secret_key=secret_key,
-        algorithm="HS256",
-        access_token_expire_minutes=15,
-        refresh_token_expire_days=7,
-    )
-
-
-@pytest.fixture
-def uuid_mock_user_service() -> AsyncMock:
-    """Provide mocked AuthenticationUserService with UUID parsing."""
-    service = AsyncMock()
-    service.parse_id = Mock(side_effect=lambda x: UUID(x))
-    return service

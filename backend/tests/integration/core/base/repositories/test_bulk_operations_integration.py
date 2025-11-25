@@ -1,19 +1,18 @@
 """Integration tests for BulkOperationsMixin."""
 
 from typing import Any
-from uuid import UUID
 
 import pytest
 
 from app.core.base.repositories.exceptions import RepositoryIntegrityError
 from tests.integration.core.base.repositories.conftest import (
     ArticleModel,
+    ArticleRepositoryWithBulk,
     CustomerModel,
     CustomerRepositoryWithBulk,
-    IntRepositoryWithBulk,
     OrderModel,
     ProductModel,
-    UUIDRepositoryWithBulk,
+    ProductRepositoryWithBulk,
 )
 
 
@@ -23,17 +22,17 @@ class TestBulkCreate:
     @pytest.mark.asyncio
     async def test_returns_empty_list_when_empty_input(
         self,
-        int_bulk_repository: IntRepositoryWithBulk,
+        product_bulk_repository: ProductRepositoryWithBulk,
     ) -> None:
         """Test bulk_create returns empty list for empty input."""
-        result = await int_bulk_repository.bulk_create([])
+        result = await product_bulk_repository.bulk_create([])
 
         assert result == []
 
     @pytest.mark.asyncio
     async def test_creates_single_item_with_generated_id(
         self,
-        int_bulk_repository: IntRepositoryWithBulk,
+        product_bulk_repository: ProductRepositoryWithBulk,
     ) -> None:
         """Test bulk_create creates single item and generates ID."""
         product = ProductModel(
@@ -43,7 +42,7 @@ class TestBulkCreate:
             in_stock=True,
         )
 
-        result = await int_bulk_repository.bulk_create([product])
+        result = await product_bulk_repository.bulk_create([product])
 
         assert len(result) == 1
         assert result[0].id is not None
@@ -55,7 +54,7 @@ class TestBulkCreate:
     @pytest.mark.asyncio
     async def test_creates_multiple_items_with_generated_ids(
         self,
-        int_bulk_repository: IntRepositoryWithBulk,
+        product_bulk_repository: ProductRepositoryWithBulk,
     ) -> None:
         """Test bulk_create creates multiple items with generated IDs."""
         products = [
@@ -63,7 +62,7 @@ class TestBulkCreate:
             for i in range(1, 6)
         ]
 
-        result = await int_bulk_repository.bulk_create(products)
+        result = await product_bulk_repository.bulk_create(products)
 
         assert len(result) == 5
         for i, item in enumerate(result, start=1):
@@ -74,7 +73,7 @@ class TestBulkCreate:
     @pytest.mark.asyncio
     async def test_creates_large_batch_successfully(
         self,
-        int_bulk_repository: IntRepositoryWithBulk,
+        product_bulk_repository: ProductRepositoryWithBulk,
     ) -> None:
         """Test bulk_create handles large batch of items."""
         products = [
@@ -82,7 +81,7 @@ class TestBulkCreate:
             for i in range(1, 51)
         ]
 
-        result = await int_bulk_repository.bulk_create(products)
+        result = await product_bulk_repository.bulk_create(products)
 
         assert len(result) == 50
         assert all(item.id is not None for item in result)
@@ -92,7 +91,7 @@ class TestBulkCreate:
     @pytest.mark.asyncio
     async def test_creates_items_without_ids_successfully(
         self,
-        int_bulk_repository: IntRepositoryWithBulk,
+        product_bulk_repository: ProductRepositoryWithBulk,
     ) -> None:
         """Test bulk_create handles items without IDs."""
         products = [
@@ -100,7 +99,7 @@ class TestBulkCreate:
             ProductModel(name="No ID 2", price=20.0, in_stock=False),
         ]
 
-        result = await int_bulk_repository.bulk_create(products)
+        result = await product_bulk_repository.bulk_create(products)
 
         assert len(result) == 2
         assert result[0].id is not None
@@ -132,11 +131,11 @@ class TestBulkCreate:
             await customer_bulk_repository.bulk_create(customers)
 
     @pytest.mark.asyncio
-    async def test_creates_uuid_items_with_generated_ids(
+    async def test_creates_article_items_with_generated_ids(
         self,
-        uuid_bulk_repository: UUIDRepositoryWithBulk,
+        article_bulk_repository: ArticleRepositoryWithBulk,
     ) -> None:
-        """Test bulk_create creates UUID items with generated IDs."""
+        """Test bulk_create creates article items with generated IDs."""
         articles = [
             ArticleModel(
                 title=f"Article {i}",
@@ -147,18 +146,18 @@ class TestBulkCreate:
             for i in range(1, 4)
         ]
 
-        result = await uuid_bulk_repository.bulk_create(articles)
+        result = await article_bulk_repository.bulk_create(articles)
 
         assert len(result) == 3
         for i, item in enumerate(result, start=1):
             assert item.id is not None
-            assert isinstance(item.id, UUID)
+            assert isinstance(item.id, int)
             assert item.title == f"Article {i}"
 
     @pytest.mark.asyncio
     async def test_returns_items_with_all_fields_populated(
         self,
-        int_bulk_repository: IntRepositoryWithBulk,
+        product_bulk_repository: ProductRepositoryWithBulk,
     ) -> None:
         """Test bulk_create returns items with all fields from RETURNING clause."""
         products = [
@@ -170,7 +169,7 @@ class TestBulkCreate:
             ),
         ]
 
-        result = await int_bulk_repository.bulk_create(products)
+        result = await product_bulk_repository.bulk_create(products)
 
         assert len(result) == 1
         item = result[0]
@@ -187,61 +186,61 @@ class TestBulkDelete:
     @pytest.mark.asyncio
     async def test_does_nothing_when_empty_input(
         self,
-        int_bulk_repository: IntRepositoryWithBulk,
+        product_bulk_repository: ProductRepositoryWithBulk,
     ) -> None:
         """Test bulk_delete does nothing for empty input."""
-        await int_bulk_repository.bulk_delete([])
+        await product_bulk_repository.bulk_delete([])
 
-        count = await int_bulk_repository.count()
+        count = await product_bulk_repository.count()
         assert count == 0
 
     @pytest.mark.asyncio
     async def test_deletes_single_item_successfully(
         self,
-        int_bulk_repository: IntRepositoryWithBulk,
+        product_bulk_repository: ProductRepositoryWithBulk,
     ) -> None:
         """Test bulk_delete deletes single item successfully."""
-        created = await int_bulk_repository.create(
+        created = await product_bulk_repository.create(
             ProductModel(name="To Delete", price=10.0, in_stock=True)
         )
         assert created.id is not None
 
-        await int_bulk_repository.bulk_delete([created.id])
+        await product_bulk_repository.bulk_delete([created.id])
 
-        retrieved = await int_bulk_repository.get_by_id(created.id)
+        retrieved = await product_bulk_repository.get_by_id(created.id)
         assert retrieved is None
 
     @pytest.mark.asyncio
     async def test_deletes_multiple_items_successfully(
         self,
-        int_bulk_repository: IntRepositoryWithBulk,
+        product_bulk_repository: ProductRepositoryWithBulk,
     ) -> None:
         """Test bulk_delete deletes multiple items successfully."""
         products = [
             ProductModel(name=f"Product {i}", price=float(i * 10), in_stock=True)
             for i in range(1, 6)
         ]
-        created = await int_bulk_repository.bulk_create(products)
+        created = await product_bulk_repository.bulk_create(products)
         ids = [item.id for item in created if item.id is not None]
         assert len(ids) == 5
 
-        await int_bulk_repository.bulk_delete(ids)
+        await product_bulk_repository.bulk_delete(ids)
 
         for item_id in ids:
-            retrieved = await int_bulk_repository.get_by_id(item_id)
+            retrieved = await product_bulk_repository.get_by_id(item_id)
             assert retrieved is None
 
     @pytest.mark.asyncio
     async def test_ignores_nonexistent_ids_silently(
         self,
-        int_bulk_repository: IntRepositoryWithBulk,
+        product_bulk_repository: ProductRepositoryWithBulk,
     ) -> None:
         """Test bulk_delete ignores non-existent IDs silently."""
         nonexistent_ids = [999, 1000, 1001]
 
-        await int_bulk_repository.bulk_delete(nonexistent_ids)
+        await product_bulk_repository.bulk_delete(nonexistent_ids)
 
-        count = await int_bulk_repository.count()
+        count = await product_bulk_repository.count()
         assert count == 0
 
     @pytest.mark.asyncio
@@ -269,11 +268,11 @@ class TestBulkDelete:
             await customer_bulk_repository.bulk_delete([customer.id])
 
     @pytest.mark.asyncio
-    async def test_deletes_uuid_items_successfully(
+    async def test_deletes_article_items_successfully(
         self,
-        uuid_bulk_repository: UUIDRepositoryWithBulk,
+        article_bulk_repository: ArticleRepositoryWithBulk,
     ) -> None:
-        """Test bulk_delete deletes UUID items successfully."""
+        """Test bulk_delete deletes article items successfully."""
         articles = [
             ArticleModel(
                 title=f"Article {i}",
@@ -283,33 +282,33 @@ class TestBulkDelete:
             )
             for i in range(1, 4)
         ]
-        created = await uuid_bulk_repository.bulk_create(articles)
+        created = await article_bulk_repository.bulk_create(articles)
         ids = [item.id for item in created if item.id is not None]
         assert len(ids) == 3
 
-        await uuid_bulk_repository.bulk_delete(ids)
+        await article_bulk_repository.bulk_delete(ids)
 
         for item_id in ids:
-            retrieved = await uuid_bulk_repository.get_by_id(item_id)
+            retrieved = await article_bulk_repository.get_by_id(item_id)
             assert retrieved is None
 
     @pytest.mark.asyncio
     async def test_deletion_is_permanent(
         self,
-        int_bulk_repository: IntRepositoryWithBulk,
+        product_bulk_repository: ProductRepositoryWithBulk,
     ) -> None:
         """Test bulk_delete permanently removes items."""
         products = [
             ProductModel(name=f"Product {i}", price=float(i * 10), in_stock=True)
             for i in range(1, 6)
         ]
-        created = await int_bulk_repository.bulk_create(products)
+        created = await product_bulk_repository.bulk_create(products)
         ids = [item.id for item in created if item.id is not None]
         assert len(ids) == 5
 
-        await int_bulk_repository.bulk_delete(ids)
+        await product_bulk_repository.bulk_delete(ids)
 
-        all_items = await int_bulk_repository.get_all()
+        all_items = await product_bulk_repository.get_all()
         assert len(all_items) == 0
 
 
@@ -319,10 +318,12 @@ class TestBulkUpsert:
     @pytest.mark.asyncio
     async def test_returns_empty_list_when_empty_input(
         self,
-        int_bulk_repository: IntRepositoryWithBulk,
+        product_bulk_repository: ProductRepositoryWithBulk,
     ) -> None:
         """Test bulk_upsert returns empty list for empty input."""
-        result = await int_bulk_repository.bulk_upsert([], conflict_columns=["name"])
+        result = await product_bulk_repository.bulk_upsert(
+            [], conflict_columns=["name"]
+        )
 
         assert result == []
 
@@ -548,10 +549,10 @@ class TestBulkUpsert:
     @pytest.mark.asyncio
     async def test_handles_edge_case_when_no_fields_to_update(
         self,
-        uuid_bulk_repository: UUIDRepositoryWithBulk,
+        article_bulk_repository: ArticleRepositoryWithBulk,
     ) -> None:
         """Test bulk_upsert handles edge case when conflict is on unique field."""
-        await uuid_bulk_repository.create(
+        await article_bulk_repository.create(
             ArticleModel(
                 title="Existing Article",
                 content="Original content",
@@ -567,7 +568,7 @@ class TestBulkUpsert:
             ),
         ]
 
-        result = await uuid_bulk_repository.bulk_upsert(
+        result = await article_bulk_repository.bulk_upsert(
             articles, conflict_columns=["title"]
         )
 
@@ -612,12 +613,12 @@ class TestBulkUpsert:
         assert count == 1
 
     @pytest.mark.asyncio
-    async def test_upserts_uuid_items_successfully(
+    async def test_upserts_article_items_successfully(
         self,
-        uuid_bulk_repository: UUIDRepositoryWithBulk,
+        article_bulk_repository: ArticleRepositoryWithBulk,
     ) -> None:
-        """Test bulk_upsert works with UUID items."""
-        created = await uuid_bulk_repository.create(
+        """Test bulk_upsert works with article items."""
+        created = await article_bulk_repository.create(
             ArticleModel(
                 title="Existing Article",
                 content="Original Content",
@@ -635,7 +636,7 @@ class TestBulkUpsert:
             ),
         ]
 
-        result = await uuid_bulk_repository.bulk_upsert(
+        result = await article_bulk_repository.bulk_upsert(
             articles, conflict_columns=["title"]
         )
 

@@ -23,7 +23,7 @@ def mock_get_api_key_service() -> Mock:
 
 
 @pytest.fixture
-def api_key_provider(mock_get_api_key_service: Mock) -> APIKeyProvider[int]:
+def api_key_provider(mock_get_api_key_service: Mock) -> APIKeyProvider:
     """Provide APIKeyProvider instance with default settings."""
     return APIKeyProvider(get_api_key_service=mock_get_api_key_service)
 
@@ -107,7 +107,7 @@ class TestCanAuthenticate:
 
     def test_can_authenticate_returns_true_when_header_present(
         self,
-        api_key_provider: APIKeyProvider[int],
+        api_key_provider: APIKeyProvider,
         mock_request_with_api_key: Mock,
     ) -> None:
         """Test can_authenticate returns True when X-API-Key header is present."""
@@ -117,7 +117,7 @@ class TestCanAuthenticate:
 
     def test_can_authenticate_returns_false_when_header_missing(
         self,
-        api_key_provider: APIKeyProvider[int],
+        api_key_provider: APIKeyProvider,
         mock_request_without_api_key: Mock,
     ) -> None:
         """Test can_authenticate returns False when X-API-Key header is missing."""
@@ -151,7 +151,7 @@ class TestAuthenticate:
     @pytest.mark.asyncio
     async def test_authenticate_returns_none_when_header_missing(
         self,
-        api_key_provider: APIKeyProvider[int],
+        api_key_provider: APIKeyProvider,
         mock_user_service: AsyncMock,
     ) -> None:
         """Test authenticate returns None when API key header is missing."""
@@ -166,7 +166,7 @@ class TestAuthenticate:
     @pytest.mark.asyncio
     async def test_authenticate_returns_none_when_service_not_in_state(
         self,
-        api_key_provider: APIKeyProvider[int],
+        api_key_provider: APIKeyProvider,
         mock_user_service: AsyncMock,
     ) -> None:
         """Test authenticate returns None when api_key_service not in request.state."""
@@ -182,7 +182,7 @@ class TestAuthenticate:
     @pytest.mark.asyncio
     async def test_authenticate_returns_user_for_valid_key(
         self,
-        api_key_provider: APIKeyProvider[int],
+        api_key_provider: APIKeyProvider,
         mock_user_service: AsyncMock,
         sample_user: User,
     ) -> None:
@@ -206,7 +206,7 @@ class TestAuthenticate:
     @pytest.mark.asyncio
     async def test_authenticate_returns_none_for_invalid_key(
         self,
-        api_key_provider: APIKeyProvider[int],
+        api_key_provider: APIKeyProvider,
         mock_user_service: AsyncMock,
     ) -> None:
         """Test authenticate returns None for invalid API key."""
@@ -226,7 +226,7 @@ class TestAuthenticate:
     @pytest.mark.asyncio
     async def test_authenticate_returns_none_for_expired_key(
         self,
-        api_key_provider: APIKeyProvider[int],
+        api_key_provider: APIKeyProvider,
         mock_user_service: AsyncMock,
     ) -> None:
         """Test authenticate returns None for expired API key."""
@@ -248,7 +248,7 @@ class TestAuthenticate:
     @pytest.mark.asyncio
     async def test_authenticate_returns_none_when_user_not_found(
         self,
-        api_key_provider: APIKeyProvider[int],
+        api_key_provider: APIKeyProvider,
         mock_user_service: AsyncMock,
     ) -> None:
         """Test authenticate returns None when user doesn't exist."""
@@ -270,7 +270,7 @@ class TestAuthenticate:
     @pytest.mark.asyncio
     async def test_authenticate_returns_none_when_user_inactive(
         self,
-        api_key_provider: APIKeyProvider[int],
+        api_key_provider: APIKeyProvider,
         mock_user_service: AsyncMock,
         inactive_user: User,
     ) -> None:
@@ -298,7 +298,7 @@ class TestSecurityScheme:
 
     def test_get_security_scheme_returns_api_key_header(
         self,
-        api_key_provider: APIKeyProvider[int],
+        api_key_provider: APIKeyProvider,
     ) -> None:
         """Test get_security_scheme returns APIKeyHeader instance."""
         scheme = api_key_provider.get_security_scheme()
@@ -323,7 +323,7 @@ class TestRouterGeneration:
 
     def test_get_router_returns_api_router(
         self,
-        api_key_provider: APIKeyProvider[int],
+        api_key_provider: APIKeyProvider,
     ) -> None:
         """Test get_router returns APIRouter instance."""
         router = api_key_provider.get_router()
@@ -332,7 +332,7 @@ class TestRouterGeneration:
 
     def test_get_router_has_api_keys_prefix(
         self,
-        api_key_provider: APIKeyProvider[int],
+        api_key_provider: APIKeyProvider,
     ) -> None:
         """Test router has correct prefix."""
         router = api_key_provider.get_router()

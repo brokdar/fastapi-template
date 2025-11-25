@@ -1,7 +1,6 @@
 """Test suite for BulkOperationsMixin."""
 
 from unittest.mock import AsyncMock, Mock
-from uuid import UUID, uuid4
 
 import pytest
 from sqlalchemy import exc as sqlalchemy_exc
@@ -10,62 +9,39 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app.core.base.repositories.base import BaseRepository
 from app.core.base.repositories.bulk import BulkOperationsMixin
 from app.core.base.repositories.exceptions import RepositoryOperationError
-from tests.unit.core.base.repositories.conftest import SampleIntModel, SampleUUIDModel
+from tests.unit.core.base.repositories.conftest import SampleModel
 
 
-class IntRepositoryWithBulk(
-    BaseRepository[SampleIntModel, int],
-    BulkOperationsMixin[SampleIntModel, int],
+class RepositoryWithBulk(
+    BaseRepository[SampleModel],
+    BulkOperationsMixin[SampleModel],
 ):
-    """Repository with bulk operations for testing with integer IDs."""
-
-
-class UUIDRepositoryWithBulk(
-    BaseRepository[SampleUUIDModel, UUID],
-    BulkOperationsMixin[SampleUUIDModel, UUID],
-):
-    """Repository with bulk operations for testing with UUID IDs."""
+    """Repository with bulk operations for testing."""
 
 
 @pytest.fixture
-def int_bulk_repository(mock_session: AsyncSession) -> IntRepositoryWithBulk:
-    """Provide IntRepositoryWithBulk instance."""
-    return IntRepositoryWithBulk(mock_session, SampleIntModel)
+def bulk_repository(mock_session: AsyncSession) -> RepositoryWithBulk:
+    """Provide RepositoryWithBulk instance."""
+    return RepositoryWithBulk(mock_session, SampleModel)
 
 
 @pytest.fixture
-def uuid_bulk_repository(mock_session: AsyncSession) -> UUIDRepositoryWithBulk:
-    """Provide UUIDRepositoryWithBulk instance."""
-    return UUIDRepositoryWithBulk(mock_session, SampleUUIDModel)
-
-
-@pytest.fixture
-def sample_int_models() -> list[SampleIntModel]:
-    """Provide list of sample int models for testing."""
+def sample_models() -> list[SampleModel]:
+    """Provide list of sample models for testing."""
     return [
-        SampleIntModel(name="Model 1"),
-        SampleIntModel(name="Model 2"),
-        SampleIntModel(name="Model 3"),
+        SampleModel(name="Model 1"),
+        SampleModel(name="Model 2"),
+        SampleModel(name="Model 3"),
     ]
 
 
 @pytest.fixture
-def sample_int_models_with_ids() -> list[SampleIntModel]:
-    """Provide list of sample int models with IDs for testing."""
+def sample_models_with_ids() -> list[SampleModel]:
+    """Provide list of sample models with IDs for testing."""
     return [
-        SampleIntModel(id=1, name="Model 1"),
-        SampleIntModel(id=2, name="Model 2"),
-        SampleIntModel(id=3, name="Model 3"),
-    ]
-
-
-@pytest.fixture
-def sample_uuid_models() -> list[SampleUUIDModel]:
-    """Provide list of sample UUID models for testing."""
-    return [
-        SampleUUIDModel(name="UUID Model 1"),
-        SampleUUIDModel(name="UUID Model 2"),
-        SampleUUIDModel(name="UUID Model 3"),
+        SampleModel(id=1, name="Model 1"),
+        SampleModel(id=2, name="Model 2"),
+        SampleModel(id=3, name="Model 3"),
     ]
 
 
@@ -75,11 +51,11 @@ class TestBulkCreate:
     @pytest.mark.asyncio
     async def test_returns_empty_list_when_empty_input(
         self,
-        int_bulk_repository: IntRepositoryWithBulk,
+        bulk_repository: RepositoryWithBulk,
         mock_session: AsyncMock,
     ) -> None:
         """Test bulk create with empty list returns empty list."""
-        result = await int_bulk_repository.bulk_create([])
+        result = await bulk_repository.bulk_create([])
 
         assert result == []
         mock_session.scalars.assert_not_called()
@@ -88,18 +64,18 @@ class TestBulkCreate:
     @pytest.mark.asyncio
     async def test_creates_single_item_successfully(
         self,
-        int_bulk_repository: IntRepositoryWithBulk,
+        bulk_repository: RepositoryWithBulk,
         mock_session: AsyncMock,
     ) -> None:
         """Test successful bulk create with single item."""
-        item = SampleIntModel(name="Test Model")
-        created_item = SampleIntModel(id=1, name="Test Model")
+        item = SampleModel(name="Test Model")
+        created_item = SampleModel(id=1, name="Test Model")
 
         mock_result = Mock()
         mock_result.all.return_value = [created_item]
         mock_session.scalars.return_value = mock_result
 
-        result = await int_bulk_repository.bulk_create([item])
+        result = await bulk_repository.bulk_create([item])
 
         assert len(result) == 1
         assert result[0].id == 1
@@ -111,21 +87,21 @@ class TestBulkCreate:
     @pytest.mark.asyncio
     async def test_creates_multiple_items_successfully(
         self,
-        int_bulk_repository: IntRepositoryWithBulk,
-        sample_int_models: list[SampleIntModel],
+        bulk_repository: RepositoryWithBulk,
+        sample_models: list[SampleModel],
         mock_session: AsyncMock,
     ) -> None:
         """Test successful bulk create with multiple items."""
         created_items = [
-            SampleIntModel(id=i + 1, name=f"Model {i + 1}")
-            for i in range(len(sample_int_models))
+            SampleModel(id=i + 1, name=f"Model {i + 1}")
+            for i in range(len(sample_models))
         ]
 
         mock_result = Mock()
         mock_result.all.return_value = created_items
         mock_session.scalars.return_value = mock_result
 
-        result = await int_bulk_repository.bulk_create(sample_int_models)
+        result = await bulk_repository.bulk_create(sample_models)
 
         assert len(result) == 3
         for i, item in enumerate(result):
@@ -138,8 +114,8 @@ class TestBulkCreate:
     @pytest.mark.asyncio
     async def test_raises_repository_error_when_database_fails(
         self,
-        int_bulk_repository: IntRepositoryWithBulk,
-        sample_int_models: list[SampleIntModel],
+        bulk_repository: RepositoryWithBulk,
+        sample_models: list[SampleModel],
         mock_session: AsyncMock,
     ) -> None:
         """Test that database errors during bulk create are properly handled."""
@@ -151,7 +127,7 @@ class TestBulkCreate:
         mock_session.scalars.side_effect = database_error
 
         with pytest.raises(RepositoryOperationError, match="bulk_create"):
-            await int_bulk_repository.bulk_create(sample_int_models)
+            await bulk_repository.bulk_create(sample_models)
 
 
 class TestBulkDelete:
@@ -160,11 +136,11 @@ class TestBulkDelete:
     @pytest.mark.asyncio
     async def test_performs_no_operation_when_empty_input(
         self,
-        int_bulk_repository: IntRepositoryWithBulk,
+        bulk_repository: RepositoryWithBulk,
         mock_session: AsyncMock,
     ) -> None:
         """Test bulk delete with empty list does nothing."""
-        await int_bulk_repository.bulk_delete([])
+        await bulk_repository.bulk_delete([])
 
         mock_session.execute.assert_not_called()
         mock_session.commit.assert_not_called()
@@ -172,13 +148,13 @@ class TestBulkDelete:
     @pytest.mark.asyncio
     async def test_deletes_items_successfully(
         self,
-        int_bulk_repository: IntRepositoryWithBulk,
+        bulk_repository: RepositoryWithBulk,
         mock_session: AsyncMock,
     ) -> None:
         """Test successful bulk delete."""
         ids = [1, 2, 3, 4, 5]
 
-        await int_bulk_repository.bulk_delete(ids)
+        await bulk_repository.bulk_delete(ids)
 
         mock_session.execute.assert_called_once()
         mock_session.commit.assert_called_once()
@@ -186,7 +162,7 @@ class TestBulkDelete:
     @pytest.mark.asyncio
     async def test_raises_repository_error_when_database_fails(
         self,
-        int_bulk_repository: IntRepositoryWithBulk,
+        bulk_repository: RepositoryWithBulk,
         mock_session: AsyncMock,
     ) -> None:
         """Test that database errors during bulk delete are properly handled."""
@@ -199,7 +175,7 @@ class TestBulkDelete:
         mock_session.execute.side_effect = database_error
 
         with pytest.raises(RepositoryOperationError, match="bulk_delete"):
-            await int_bulk_repository.bulk_delete(ids)
+            await bulk_repository.bulk_delete(ids)
 
 
 class TestBulkUpsert:
@@ -208,11 +184,11 @@ class TestBulkUpsert:
     @pytest.mark.asyncio
     async def test_returns_empty_list_when_empty_input(
         self,
-        int_bulk_repository: IntRepositoryWithBulk,
+        bulk_repository: RepositoryWithBulk,
         mock_session: AsyncMock,
     ) -> None:
         """Test bulk upsert with empty list returns empty list."""
-        result = await int_bulk_repository.bulk_upsert([], ["name"])
+        result = await bulk_repository.bulk_upsert([], ["name"])
 
         assert result == []
         mock_session.scalars.assert_not_called()
@@ -221,22 +197,22 @@ class TestBulkUpsert:
     @pytest.mark.asyncio
     async def test_upserts_with_default_update_columns_successfully(
         self,
-        int_bulk_repository: IntRepositoryWithBulk,
-        sample_int_models: list[SampleIntModel],
+        bulk_repository: RepositoryWithBulk,
+        sample_models: list[SampleModel],
         mock_session: AsyncMock,
     ) -> None:
         """Test successful bulk upsert with default update columns."""
         upserted_items = [
-            SampleIntModel(id=i + 1, name=f"Model {i + 1}")
-            for i in range(len(sample_int_models))
+            SampleModel(id=i + 1, name=f"Model {i + 1}")
+            for i in range(len(sample_models))
         ]
 
         mock_result = Mock()
         mock_result.all.return_value = upserted_items
         mock_session.scalars.return_value = mock_result
 
-        result = await int_bulk_repository.bulk_upsert(
-            sample_int_models, conflict_columns=["name"]
+        result = await bulk_repository.bulk_upsert(
+            sample_models, conflict_columns=["name"]
         )
 
         assert len(result) == 3
@@ -250,22 +226,22 @@ class TestBulkUpsert:
     @pytest.mark.asyncio
     async def test_upserts_with_specific_update_columns_successfully(
         self,
-        int_bulk_repository: IntRepositoryWithBulk,
-        sample_int_models: list[SampleIntModel],
+        bulk_repository: RepositoryWithBulk,
+        sample_models: list[SampleModel],
         mock_session: AsyncMock,
     ) -> None:
         """Test successful bulk upsert with specific update columns."""
         upserted_items = [
-            SampleIntModel(id=i + 1, name=f"Model {i + 1}")
-            for i in range(len(sample_int_models))
+            SampleModel(id=i + 1, name=f"Model {i + 1}")
+            for i in range(len(sample_models))
         ]
 
         mock_result = Mock()
         mock_result.all.return_value = upserted_items
         mock_session.scalars.return_value = mock_result
 
-        result = await int_bulk_repository.bulk_upsert(
-            sample_int_models,
+        result = await bulk_repository.bulk_upsert(
+            sample_models,
             conflict_columns=["name"],
             update_columns=["name"],
         )
@@ -278,8 +254,8 @@ class TestBulkUpsert:
     @pytest.mark.asyncio
     async def test_raises_repository_error_when_database_fails(
         self,
-        int_bulk_repository: IntRepositoryWithBulk,
-        sample_int_models: list[SampleIntModel],
+        bulk_repository: RepositoryWithBulk,
+        sample_models: list[SampleModel],
         mock_session: AsyncMock,
     ) -> None:
         """Test that database errors during bulk upsert are properly handled."""
@@ -291,49 +267,4 @@ class TestBulkUpsert:
         mock_session.scalars.side_effect = database_error
 
         with pytest.raises(RepositoryOperationError, match="bulk_upsert"):
-            await int_bulk_repository.bulk_upsert(sample_int_models, ["name"])
-
-
-class TestBulkOperationsWithUUID:
-    """Test suite for bulk operations with UUID models."""
-
-    @pytest.mark.asyncio
-    async def test_creates_uuid_models_successfully(
-        self,
-        uuid_bulk_repository: UUIDRepositoryWithBulk,
-        sample_uuid_models: list[SampleUUIDModel],
-        mock_session: AsyncMock,
-    ) -> None:
-        """Test bulk create with UUID models."""
-        created_items = [
-            SampleUUIDModel(id=uuid4(), name=f"UUID Model {i + 1}")
-            for i in range(len(sample_uuid_models))
-        ]
-
-        mock_result = Mock()
-        mock_result.all.return_value = created_items
-        mock_session.scalars.return_value = mock_result
-
-        result = await uuid_bulk_repository.bulk_create(sample_uuid_models)
-
-        assert len(result) == 3
-        for item in result:
-            assert item.id is not None
-            assert isinstance(item.id, UUID)
-
-        mock_session.scalars.assert_called_once()
-        mock_session.commit.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_deletes_uuid_models_successfully(
-        self,
-        uuid_bulk_repository: UUIDRepositoryWithBulk,
-        mock_session: AsyncMock,
-    ) -> None:
-        """Test bulk delete with UUID IDs."""
-        uuids = [uuid4() for _ in range(3)]
-
-        await uuid_bulk_repository.bulk_delete(uuids)
-
-        mock_session.execute.assert_called_once()
-        mock_session.commit.assert_called_once()
+            await bulk_repository.bulk_upsert(sample_models, ["name"])

@@ -29,7 +29,7 @@ def mock_get_api_key_service() -> Mock:
 
 
 @pytest.fixture
-def api_key_provider(mock_get_api_key_service: Mock) -> APIKeyProvider[int]:
+def api_key_provider(mock_get_api_key_service: Mock) -> APIKeyProvider:
     """Provide APIKeyProvider instance with default settings."""
     return APIKeyProvider(
         get_api_key_service=mock_get_api_key_service,
@@ -100,9 +100,7 @@ def expired_api_key(api_key_hasher: BCryptAPIKeyService) -> tuple[str, APIKey]:
 @pytest.fixture
 def mock_user_service() -> AsyncMock:
     """Provide mocked AuthenticationUserService."""
-    service = AsyncMock()
-    service.parse_id = Mock(side_effect=lambda x: int(x))
-    return service
+    return AsyncMock()
 
 
 @pytest.fixture

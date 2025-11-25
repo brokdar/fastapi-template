@@ -2,15 +2,13 @@
 
 from typing import Any
 from unittest.mock import AsyncMock
-from uuid import UUID
 
 import pytest
 
 from app.domains.users.exceptions import UserAlreadyExistsError, UserNotFoundError
-from app.domains.users.mixins import IntIDMixin, UUIDIDMixin
 from app.domains.users.models import User
 from app.domains.users.schemas import UserCreate, UserUpdate
-from app.domains.users.services import IntUserService, UserService
+from app.domains.users.services import UserService
 
 
 class TestUserServiceGetById:
@@ -19,7 +17,7 @@ class TestUserServiceGetById:
     @pytest.mark.asyncio
     async def test_returns_user_when_exists(
         self,
-        user_service: UserService[int],
+        user_service: UserService,
         mock_repository: AsyncMock,
         regular_user: User,
     ) -> None:
@@ -34,7 +32,7 @@ class TestUserServiceGetById:
     @pytest.mark.asyncio
     async def test_raises_not_found_error_when_user_not_exists(
         self,
-        user_service: UserService[int],
+        user_service: UserService,
         mock_repository: AsyncMock,
     ) -> None:
         """Test UserNotFoundError when user doesn't exist."""
@@ -52,7 +50,7 @@ class TestUserServiceGetByName:
     @pytest.mark.asyncio
     async def test_returns_user_when_exists(
         self,
-        user_service: UserService[int],
+        user_service: UserService,
         mock_repository: AsyncMock,
         regular_user: User,
     ) -> None:
@@ -67,7 +65,7 @@ class TestUserServiceGetByName:
     @pytest.mark.asyncio
     async def test_raises_not_found_error_when_user_not_exists(
         self,
-        user_service: UserService[int],
+        user_service: UserService,
         mock_repository: AsyncMock,
     ) -> None:
         """Test UserNotFoundError when username doesn't exist."""
@@ -87,7 +85,7 @@ class TestUserServiceGetAll:
     @pytest.mark.asyncio
     async def test_returns_paginated_users(
         self,
-        user_service: UserService[int],
+        user_service: UserService,
         mock_repository: AsyncMock,
         regular_user: User,
     ) -> None:
@@ -106,7 +104,7 @@ class TestUserServiceGetAll:
     @pytest.mark.asyncio
     async def test_uses_default_pagination_parameters(
         self,
-        user_service: UserService[int],
+        user_service: UserService,
         mock_repository: AsyncMock,
     ) -> None:
         """Test default pagination parameters when no parameters provided."""
@@ -126,7 +124,7 @@ class TestUserServiceCount:
     @pytest.mark.asyncio
     async def test_returns_total_user_count(
         self,
-        user_service: UserService[int],
+        user_service: UserService,
         mock_repository: AsyncMock,
     ) -> None:
         """Test total user count retrieval."""
@@ -145,7 +143,7 @@ class TestUserServiceCreateUser:
     @pytest.mark.asyncio
     async def test_creates_user_when_no_conflicts(
         self,
-        user_service: UserService[int],
+        user_service: UserService,
         mock_repository: AsyncMock,
         user_create_data: UserCreate,
         regular_user: User,
@@ -165,7 +163,7 @@ class TestUserServiceCreateUser:
     @pytest.mark.asyncio
     async def test_raises_already_exists_error_when_email_conflict(
         self,
-        user_service: UserService[int],
+        user_service: UserService,
         mock_repository: AsyncMock,
         user_create_data: UserCreate,
         regular_user: User,
@@ -184,7 +182,7 @@ class TestUserServiceCreateUser:
     @pytest.mark.asyncio
     async def test_raises_already_exists_error_when_username_conflict(
         self,
-        user_service: UserService[int],
+        user_service: UserService,
         mock_repository: AsyncMock,
         user_create_data: UserCreate,
         regular_user: User,
@@ -209,7 +207,7 @@ class TestUserServiceUpdateUser:
     @pytest.mark.asyncio
     async def test_updates_user_when_exists_and_no_conflicts(
         self,
-        user_service: UserService[int],
+        user_service: UserService,
         mock_repository: AsyncMock,
         regular_user: User,
     ) -> None:
@@ -233,7 +231,7 @@ class TestUserServiceUpdateUser:
     @pytest.mark.asyncio
     async def test_raises_not_found_error_when_user_not_exists(
         self,
-        user_service: UserService[int],
+        user_service: UserService,
         mock_repository: AsyncMock,
     ) -> None:
         """Test UserNotFoundError when updating non-existent user."""
@@ -249,7 +247,7 @@ class TestUserServiceUpdateUser:
     @pytest.mark.asyncio
     async def test_raises_already_exists_error_on_email_conflict(
         self,
-        user_service: UserService[int],
+        user_service: UserService,
         mock_repository: AsyncMock,
         regular_user: User,
     ) -> None:
@@ -274,7 +272,7 @@ class TestUserServiceUpdateUser:
     @pytest.mark.asyncio
     async def test_allows_updating_to_same_email(
         self,
-        user_service: UserService[int],
+        user_service: UserService,
         mock_repository: AsyncMock,
         regular_user: User,
     ) -> None:
@@ -305,7 +303,7 @@ class TestUserServiceUpdateUser:
     @pytest.mark.asyncio
     async def test_update_validation_calls_depend_on_fields(
         self,
-        user_service: UserService[int],
+        user_service: UserService,
         mock_repository: AsyncMock,
         regular_user: User,
         update_data: dict[str, Any],
@@ -334,7 +332,7 @@ class TestUserServiceDeleteUser:
     @pytest.mark.asyncio
     async def test_deletes_user_when_exists(
         self,
-        user_service: UserService[int],
+        user_service: UserService,
         mock_repository: AsyncMock,
         regular_user: User,
     ) -> None:
@@ -350,7 +348,7 @@ class TestUserServiceDeleteUser:
     @pytest.mark.asyncio
     async def test_raises_not_found_error_when_user_not_exists(
         self,
-        user_service: UserService[int],
+        user_service: UserService,
         mock_repository: AsyncMock,
     ) -> None:
         """Test UserNotFoundError when deleting non-existent user."""
@@ -361,62 +359,3 @@ class TestUserServiceDeleteUser:
 
         mock_repository.get_by_id.assert_called_once_with(999)
         assert not mock_repository.delete.called
-
-
-class TestUserServiceParseId:
-    """Test suite for UserService.parse_id method and mixin composition."""
-
-    def test_raises_not_implemented_without_mixin(
-        self, mock_repository: AsyncMock, mock_password_service: AsyncMock
-    ) -> None:
-        """Test that pure UserService without mixin raises NotImplementedError."""
-        service = UserService(mock_repository, mock_password_service)
-
-        with pytest.raises(
-            NotImplementedError, match="must be composed with an ID mixin"
-        ):
-            service.parse_id("123")
-
-    def test_int_user_service_parses_integer_ids(
-        self, mock_repository: AsyncMock, mock_password_service: AsyncMock
-    ) -> None:
-        """Test IntUserService parses integer IDs via IntIDMixin."""
-        service = IntUserService(mock_repository, mock_password_service)
-
-        result = service.parse_id("123")
-
-        assert result == 123
-        assert isinstance(result, int)
-
-    def test_uuid_user_service_parses_uuid_ids(
-        self, mock_repository: AsyncMock, mock_password_service: AsyncMock
-    ) -> None:
-        """Test UUIDUserService parses UUID IDs via UUIDIDMixin."""
-
-        class UUIDUserService(UUIDIDMixin, UserService[UUID]):
-            pass
-
-        service = UUIDUserService(mock_repository, mock_password_service)
-        uuid_str = "123e4567-e89b-12d3-a456-426614174000"
-
-        result = service.parse_id(uuid_str)
-
-        assert isinstance(result, UUID)
-        assert str(result) == uuid_str
-
-    def test_mixin_method_resolution_order(
-        self, mock_repository: AsyncMock, mock_password_service: AsyncMock
-    ) -> None:
-        """Test that MRO resolves parse_id to mixin implementation."""
-
-        class TestService(IntIDMixin, UserService[int]):
-            pass
-
-        service = TestService(mock_repository, mock_password_service)
-        mro = TestService.__mro__
-
-        assert mro[0] == TestService
-        assert mro[1] == IntIDMixin
-        assert mro[2] == UserService
-        assert hasattr(service, "parse_id")
-        assert service.parse_id("456") == 456

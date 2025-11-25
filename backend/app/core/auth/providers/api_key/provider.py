@@ -1,7 +1,6 @@
 """API Key authentication provider implementation."""
 
 from collections.abc import Callable
-from uuid import UUID
 
 import structlog
 from fastapi import APIRouter, Request
@@ -19,7 +18,7 @@ from .services import APIKeyService
 logger = structlog.get_logger("auth.provider.api_key")
 
 
-class APIKeyProvider[ID: (int, UUID)](AuthProvider[ID]):
+class APIKeyProvider(AuthProvider):
     """API Key authentication provider.
 
     Authenticates requests using API keys passed via X-API-Key header.
@@ -54,7 +53,7 @@ class APIKeyProvider[ID: (int, UUID)](AuthProvider[ID]):
         return request.headers.get(self._header_name) is not None
 
     async def authenticate(
-        self, request: Request, user_service: AuthenticationUserService[ID]
+        self, request: Request, user_service: AuthenticationUserService
     ) -> User | None:
         """Authenticate using API key from header.
 
@@ -79,17 +78,9 @@ class APIKeyProvider[ID: (int, UUID)](AuthProvider[ID]):
             return None
 
         try:
-            user_id_int, key_id = await api_key_service.validate_key(api_key)
+            user_id, key_id = await api_key_service.validate_key(api_key)
         except (InvalidAPIKeyError, APIKeyExpiredError) as e:
             logger.warning("authentication_failed", reason=str(e))
-            return None
-
-        try:
-            user_id = user_service.parse_id(str(user_id_int))
-        except (ValueError, TypeError) as e:
-            logger.warning(
-                "authentication_failed", reason="invalid_user_id", error=str(e)
-            )
             return None
 
         try:

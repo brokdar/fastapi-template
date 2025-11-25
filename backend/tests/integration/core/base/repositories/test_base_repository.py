@@ -1,7 +1,6 @@
 """Integration tests for BaseRepository with real PostgreSQL database."""
 
 from typing import Any, cast
-from uuid import UUID
 
 import pytest
 from sqlalchemy.sql.expression import ColumnElement
@@ -23,14 +22,14 @@ from .conftest import (
 
 
 class TestBaseRepositoryGetById:
-    """Test suite for get_by_id method with int and UUID types."""
+    """Test suite for get_by_id method."""
 
-    async def test_retrieves_product_by_int_id_successfully(
+    async def test_retrieves_product_by_id_successfully(
         self,
-        product_repository: BaseRepository[ProductModel, int],
+        product_repository: BaseRepository[ProductModel],
         created_product: ProductModel,
     ) -> None:
-        """Test retrieving existing product by int ID."""
+        """Test retrieving existing product by ID."""
         assert created_product.id is not None
 
         retrieved = await product_repository.get_by_id(created_product.id)
@@ -42,12 +41,12 @@ class TestBaseRepositoryGetById:
         assert retrieved.category == created_product.category
         assert retrieved.in_stock == created_product.in_stock
 
-    async def test_retrieves_article_by_uuid_id_successfully(
+    async def test_retrieves_article_by_id_successfully(
         self,
-        article_repository: BaseRepository[ArticleModel, UUID],
+        article_repository: BaseRepository[ArticleModel],
         created_article: ArticleModel,
     ) -> None:
-        """Test retrieving existing article by UUID."""
+        """Test retrieving existing article by ID."""
         assert created_article.id is not None
 
         retrieved = await article_repository.get_by_id(created_article.id)
@@ -59,28 +58,18 @@ class TestBaseRepositoryGetById:
         assert retrieved.author == created_article.author
         assert retrieved.published == created_article.published
 
-    async def test_returns_none_for_nonexistent_int_id(
+    async def test_returns_none_for_nonexistent_id(
         self,
-        product_repository: BaseRepository[ProductModel, int],
+        product_repository: BaseRepository[ProductModel],
     ) -> None:
-        """Test non-existent int ID returns None."""
+        """Test non-existent ID returns None."""
         retrieved = await product_repository.get_by_id(999999)
-
-        assert retrieved is None
-
-    async def test_returns_none_for_nonexistent_uuid_id(
-        self,
-        article_repository: BaseRepository[ArticleModel, UUID],
-        sample_uuid_1: UUID,
-    ) -> None:
-        """Test non-existent UUID returns None."""
-        retrieved = await article_repository.get_by_id(sample_uuid_1)
 
         assert retrieved is None
 
     async def test_retrieves_correct_product_among_multiple(
         self,
-        product_repository: BaseRepository[ProductModel, int],
+        product_repository: BaseRepository[ProductModel],
         multiple_products: list[ProductModel],
     ) -> None:
         """Test correct entity retrieved when multiple exist."""
@@ -99,7 +88,7 @@ class TestBaseRepositoryGetAll:
 
     async def test_retrieves_all_products_successfully(
         self,
-        product_repository: BaseRepository[ProductModel, int],
+        product_repository: BaseRepository[ProductModel],
         multiple_products: list[ProductModel],
     ) -> None:
         """Test retrieving all products."""
@@ -112,7 +101,7 @@ class TestBaseRepositoryGetAll:
 
     async def test_retrieves_all_articles_successfully(
         self,
-        article_repository: BaseRepository[ArticleModel, UUID],
+        article_repository: BaseRepository[ArticleModel],
         multiple_articles: list[ArticleModel],
     ) -> None:
         """Test retrieving all articles."""
@@ -125,7 +114,7 @@ class TestBaseRepositoryGetAll:
 
     async def test_returns_empty_list_when_no_entities(
         self,
-        customer_repository: BaseRepository[CustomerModel, int],
+        customer_repository: BaseRepository[CustomerModel],
     ) -> None:
         """Test empty table returns empty list."""
         all_customers = await customer_repository.get_all()
@@ -134,7 +123,7 @@ class TestBaseRepositoryGetAll:
 
     async def test_retrieves_correct_count_with_multiple_entities(
         self,
-        product_repository: BaseRepository[ProductModel, int],
+        product_repository: BaseRepository[ProductModel],
         multiple_products: list[ProductModel],
     ) -> None:
         """Test correct count when populated."""
@@ -148,7 +137,7 @@ class TestBaseRepositoryCount:
 
     async def test_returns_zero_for_empty_table(
         self,
-        order_repository: BaseRepository[OrderModel, int],
+        order_repository: BaseRepository[OrderModel],
     ) -> None:
         """Test count is 0 for empty table."""
         count = await order_repository.count()
@@ -158,7 +147,7 @@ class TestBaseRepositoryCount:
     @pytest.mark.usefixtures("created_product")
     async def test_returns_correct_count_for_single_entity(
         self,
-        product_repository: BaseRepository[ProductModel, int],
+        product_repository: BaseRepository[ProductModel],
     ) -> None:
         """Test count is 1 after creating one."""
         count = await product_repository.count()
@@ -167,7 +156,7 @@ class TestBaseRepositoryCount:
 
     async def test_returns_correct_count_for_multiple_entities(
         self,
-        product_repository: BaseRepository[ProductModel, int],
+        product_repository: BaseRepository[ProductModel],
         multiple_products: list[ProductModel],
     ) -> None:
         """Test accurate count for multiple entities."""
@@ -177,7 +166,7 @@ class TestBaseRepositoryCount:
 
     async def test_count_reflects_deletions(
         self,
-        product_repository: BaseRepository[ProductModel, int],
+        product_repository: BaseRepository[ProductModel],
         multiple_products: list[ProductModel],
     ) -> None:
         """Test count decreases after deletion."""
@@ -197,7 +186,7 @@ class TestBaseRepositoryGetPaginated:
     @pytest.mark.usefixtures("multiple_products")
     async def test_retrieves_first_page_successfully(
         self,
-        product_repository: BaseRepository[ProductModel, int],
+        product_repository: BaseRepository[ProductModel],
     ) -> None:
         """Test retrieving first page with offset=0, limit=10."""
         paginated = await product_repository.get_paginated(offset=0, limit=10)
@@ -208,7 +197,7 @@ class TestBaseRepositoryGetPaginated:
     @pytest.mark.usefixtures("multiple_products")
     async def test_retrieves_middle_page_successfully(
         self,
-        product_repository: BaseRepository[ProductModel, int],
+        product_repository: BaseRepository[ProductModel],
     ) -> None:
         """Test retrieving middle page with offset=10, limit=10."""
         paginated = await product_repository.get_paginated(offset=10, limit=10)
@@ -218,7 +207,7 @@ class TestBaseRepositoryGetPaginated:
     @pytest.mark.usefixtures("multiple_products")
     async def test_retrieves_last_page_successfully(
         self,
-        product_repository: BaseRepository[ProductModel, int],
+        product_repository: BaseRepository[ProductModel],
     ) -> None:
         """Test retrieving last page with partial results."""
         paginated = await product_repository.get_paginated(offset=20, limit=10)
@@ -228,7 +217,7 @@ class TestBaseRepositoryGetPaginated:
     @pytest.mark.usefixtures("multiple_products")
     async def test_retrieves_single_item_page(
         self,
-        product_repository: BaseRepository[ProductModel, int],
+        product_repository: BaseRepository[ProductModel],
     ) -> None:
         """Test retrieving single item with offset=0, limit=1."""
         paginated = await product_repository.get_paginated(offset=0, limit=1)
@@ -238,7 +227,7 @@ class TestBaseRepositoryGetPaginated:
     @pytest.mark.usefixtures("multiple_products")
     async def test_handles_offset_beyond_total_count(
         self,
-        product_repository: BaseRepository[ProductModel, int],
+        product_repository: BaseRepository[ProductModel],
     ) -> None:
         """Test offset beyond total count returns empty results."""
         paginated = await product_repository.get_paginated(offset=100, limit=10)
@@ -248,7 +237,7 @@ class TestBaseRepositoryGetPaginated:
     @pytest.mark.usefixtures("multiple_products")
     async def test_applies_default_parameters(
         self,
-        product_repository: BaseRepository[ProductModel, int],
+        product_repository: BaseRepository[ProductModel],
     ) -> None:
         """Test default parameters (offset=0, limit=10)."""
         paginated = await product_repository.get_paginated()
@@ -258,7 +247,7 @@ class TestBaseRepositoryGetPaginated:
     @pytest.mark.usefixtures("multiple_products")
     async def test_raises_invalid_pagination_error_for_zero_limit(
         self,
-        product_repository: BaseRepository[ProductModel, int],
+        product_repository: BaseRepository[ProductModel],
     ) -> None:
         """Test limit=0 raises InvalidPaginationError."""
         with pytest.raises(
@@ -270,7 +259,7 @@ class TestBaseRepositoryGetPaginated:
     @pytest.mark.usefixtures("multiple_products")
     async def test_raises_invalid_pagination_error_for_negative_limit(
         self,
-        product_repository: BaseRepository[ProductModel, int],
+        product_repository: BaseRepository[ProductModel],
     ) -> None:
         """Test limit=-1 raises InvalidPaginationError."""
         with pytest.raises(
@@ -282,7 +271,7 @@ class TestBaseRepositoryGetPaginated:
     @pytest.mark.usefixtures("multiple_products")
     async def test_raises_invalid_pagination_error_for_negative_offset(
         self,
-        product_repository: BaseRepository[ProductModel, int],
+        product_repository: BaseRepository[ProductModel],
     ) -> None:
         """Test offset=-1 raises InvalidPaginationError."""
         with pytest.raises(
@@ -299,7 +288,7 @@ class TestBaseRepositoryGetPaginated:
     )
     async def test_raises_invalid_pagination_error_for_non_integer_limit(
         self,
-        product_repository: BaseRepository[ProductModel, int],
+        product_repository: BaseRepository[ProductModel],
         invalid_limit: Any,
     ) -> None:
         """Test non-integer limit raises InvalidPaginationError."""
@@ -317,7 +306,7 @@ class TestBaseRepositoryGetPaginated:
     )
     async def test_raises_invalid_pagination_error_for_non_integer_offset(
         self,
-        product_repository: BaseRepository[ProductModel, int],
+        product_repository: BaseRepository[ProductModel],
         invalid_offset: Any,
     ) -> None:
         """Test non-integer offset raises InvalidPaginationError."""
@@ -331,12 +320,12 @@ class TestBaseRepositoryGetPaginated:
 class TestBaseRepositoryCreate:
     """Test suite for create method."""
 
-    async def test_creates_product_with_int_id_successfully(
+    async def test_creates_product_successfully(
         self,
-        product_repository: BaseRepository[ProductModel, int],
+        product_repository: BaseRepository[ProductModel],
         sample_product_data: dict[str, Any],
     ) -> None:
-        """Test creating int ID entity."""
+        """Test creating entity."""
         product = ProductModel(**sample_product_data)
 
         created = await product_repository.create(product)
@@ -347,26 +336,25 @@ class TestBaseRepositoryCreate:
         assert created.category == sample_product_data["category"]
         assert created.in_stock == sample_product_data["in_stock"]
 
-    async def test_creates_article_with_uuid_id_successfully(
+    async def test_creates_article_successfully(
         self,
-        article_repository: BaseRepository[ArticleModel, UUID],
+        article_repository: BaseRepository[ArticleModel],
         sample_article_data: dict[str, Any],
     ) -> None:
-        """Test creating UUID entity."""
+        """Test creating entity."""
         article = ArticleModel(**sample_article_data)
 
         created = await article_repository.create(article)
 
         assert created.id is not None
-        assert isinstance(created.id, UUID)
         assert created.title == sample_article_data["title"]
         assert created.content == sample_article_data["content"]
         assert created.author == sample_article_data["author"]
         assert created.published == sample_article_data["published"]
 
-    async def test_generates_int_id_automatically(
+    async def test_generates_id_automatically(
         self,
-        product_repository: BaseRepository[ProductModel, int],
+        product_repository: BaseRepository[ProductModel],
     ) -> None:
         """Test auto-incremented ID assigned."""
         product = ProductModel(
@@ -382,26 +370,9 @@ class TestBaseRepositoryCreate:
         assert isinstance(created.id, int)
         assert created.id > 0
 
-    async def test_generates_uuid_automatically(
-        self,
-        article_repository: BaseRepository[ArticleModel, UUID],
-    ) -> None:
-        """Test UUID generated when not provided."""
-        article = ArticleModel(
-            title="Auto UUID Article",
-            content="Test content",
-            author="Test Author",
-            published=False,
-        )
-
-        created = await article_repository.create(article)
-
-        assert created.id is not None
-        assert isinstance(created.id, UUID)
-
     async def test_persists_all_field_values_correctly(
         self,
-        product_repository: BaseRepository[ProductModel, int],
+        product_repository: BaseRepository[ProductModel],
     ) -> None:
         """Test all fields saved to database."""
         product = ProductModel(
@@ -424,7 +395,7 @@ class TestBaseRepositoryCreate:
 
     async def test_created_entity_retrievable_by_id(
         self,
-        product_repository: BaseRepository[ProductModel, int],
+        product_repository: BaseRepository[ProductModel],
         sample_product_data: dict[str, Any],
     ) -> None:
         """Test created entity can be fetched by ID."""
@@ -440,7 +411,7 @@ class TestBaseRepositoryCreate:
 
     async def test_raises_integrity_error_for_duplicate_unique_field(
         self,
-        customer_repository: BaseRepository[CustomerModel, int],
+        customer_repository: BaseRepository[CustomerModel],
         created_customer: CustomerModel,
     ) -> None:
         """Test unique constraint violation."""
@@ -458,7 +429,7 @@ class TestBaseRepositoryCreate:
 
     async def test_raises_integrity_error_for_null_required_field(
         self,
-        product_repository: BaseRepository[ProductModel, int],
+        product_repository: BaseRepository[ProductModel],
     ) -> None:
         """Test NOT NULL constraint violation."""
         invalid_product = ProductModel(name="Test", price=10.0)
@@ -476,10 +447,10 @@ class TestBaseRepositoryUpdate:
 
     async def test_updates_product_fields_successfully(
         self,
-        product_repository: BaseRepository[ProductModel, int],
+        product_repository: BaseRepository[ProductModel],
         created_product: ProductModel,
     ) -> None:
-        """Test updating int ID entity fields."""
+        """Test updating entity fields."""
         created_product.name = "Updated Product"
         created_product.price = 149.99
 
@@ -490,10 +461,10 @@ class TestBaseRepositoryUpdate:
 
     async def test_updates_article_fields_successfully(
         self,
-        article_repository: BaseRepository[ArticleModel, UUID],
+        article_repository: BaseRepository[ArticleModel],
         created_article: ArticleModel,
     ) -> None:
-        """Test updating UUID entity fields."""
+        """Test updating entity fields."""
         created_article.title = "Updated Article"
         created_article.published = True
 
@@ -504,7 +475,7 @@ class TestBaseRepositoryUpdate:
 
     async def test_update_persists_to_database(
         self,
-        product_repository: BaseRepository[ProductModel, int],
+        product_repository: BaseRepository[ProductModel],
         created_product: ProductModel,
     ) -> None:
         """Test changes visible in subsequent queries."""
@@ -520,7 +491,7 @@ class TestBaseRepositoryUpdate:
 
     async def test_updates_single_field_without_affecting_others(
         self,
-        product_repository: BaseRepository[ProductModel, int],
+        product_repository: BaseRepository[ProductModel],
         created_product: ProductModel,
     ) -> None:
         """Test partial update."""
@@ -534,7 +505,7 @@ class TestBaseRepositoryUpdate:
 
     async def test_updates_nullable_field_to_null(
         self,
-        product_repository: BaseRepository[ProductModel, int],
+        product_repository: BaseRepository[ProductModel],
         created_product: ProductModel,
     ) -> None:
         """Test setting field to None."""
@@ -546,7 +517,7 @@ class TestBaseRepositoryUpdate:
 
     async def test_updates_nullable_field_from_null(
         self,
-        article_repository: BaseRepository[ArticleModel, UUID],
+        article_repository: BaseRepository[ArticleModel],
     ) -> None:
         """Test setting None field to value."""
         article = ArticleModel(
@@ -564,7 +535,7 @@ class TestBaseRepositoryUpdate:
 
     async def test_raises_integrity_error_for_unique_constraint_on_update(
         self,
-        customer_repository: BaseRepository[CustomerModel, int],
+        customer_repository: BaseRepository[CustomerModel],
     ) -> None:
         """Test update causes unique violation."""
         customer1 = CustomerModel(
@@ -592,12 +563,12 @@ class TestBaseRepositoryUpdate:
 class TestBaseRepositoryDelete:
     """Test suite for delete method."""
 
-    async def test_deletes_product_by_int_id_successfully(
+    async def test_deletes_product_by_id_successfully(
         self,
-        product_repository: BaseRepository[ProductModel, int],
+        product_repository: BaseRepository[ProductModel],
         created_product: ProductModel,
     ) -> None:
-        """Test deleting int ID entity."""
+        """Test deleting entity."""
         assert created_product.id is not None
 
         await product_repository.delete(created_product.id)
@@ -605,12 +576,12 @@ class TestBaseRepositoryDelete:
         retrieved = await product_repository.get_by_id(created_product.id)
         assert retrieved is None
 
-    async def test_deletes_article_by_uuid_id_successfully(
+    async def test_deletes_article_by_id_successfully(
         self,
-        article_repository: BaseRepository[ArticleModel, UUID],
+        article_repository: BaseRepository[ArticleModel],
         created_article: ArticleModel,
     ) -> None:
-        """Test deleting UUID entity."""
+        """Test deleting entity."""
         assert created_article.id is not None
 
         await article_repository.delete(created_article.id)
@@ -620,7 +591,7 @@ class TestBaseRepositoryDelete:
 
     async def test_deleted_entity_no_longer_retrievable(
         self,
-        product_repository: BaseRepository[ProductModel, int],
+        product_repository: BaseRepository[ProductModel],
         created_product: ProductModel,
     ) -> None:
         """Test get_by_id returns None after deletion."""
@@ -633,7 +604,7 @@ class TestBaseRepositoryDelete:
 
     async def test_count_decreases_after_deletion(
         self,
-        product_repository: BaseRepository[ProductModel, int],
+        product_repository: BaseRepository[ProductModel],
         multiple_products: list[ProductModel],
     ) -> None:
         """Test count reflects deletion."""
@@ -646,33 +617,21 @@ class TestBaseRepositoryDelete:
         new_count = await product_repository.count()
         assert new_count == initial_count - 1
 
-    async def test_raises_entity_not_found_error_for_nonexistent_int_id(
+    async def test_raises_entity_not_found_error_for_nonexistent_id(
         self,
-        product_repository: BaseRepository[ProductModel, int],
+        product_repository: BaseRepository[ProductModel],
     ) -> None:
-        """Test deleting non-existent int ID."""
+        """Test deleting non-existent ID."""
         with pytest.raises(
             EntityNotFoundError,
             match="ProductModel with ID 999999 not found",
         ):
             await product_repository.delete(999999)
 
-    async def test_raises_entity_not_found_error_for_nonexistent_uuid_id(
-        self,
-        article_repository: BaseRepository[ArticleModel, UUID],
-        sample_uuid_1: UUID,
-    ) -> None:
-        """Test deleting non-existent UUID."""
-        with pytest.raises(
-            EntityNotFoundError,
-            match=r"ArticleModel with ID UUID\('12345678-1234-5678-1234-567812345678'\) not found",
-        ):
-            await article_repository.delete(sample_uuid_1)
-
     async def test_raises_integrity_error_for_foreign_key_constraint(
         self,
-        customer_repository: BaseRepository[CustomerModel, int],
-        order_repository: BaseRepository[OrderModel, int],
+        customer_repository: BaseRepository[CustomerModel],
+        order_repository: BaseRepository[OrderModel],
         created_customer: CustomerModel,
     ) -> None:
         """Test deleting referenced entity."""
@@ -696,7 +655,7 @@ class TestBaseRepositoryFilter:
 
     async def test_filters_by_single_equality_condition(
         self,
-        product_repository: BaseRepository[ProductModel, int],
+        product_repository: BaseRepository[ProductModel],
         multiple_products: list[ProductModel],
     ) -> None:
         """Test filtering with single equality condition."""
@@ -712,7 +671,7 @@ class TestBaseRepositoryFilter:
     @pytest.mark.usefixtures("multiple_products")
     async def test_filters_by_single_inequality_condition(
         self,
-        product_repository: BaseRepository[ProductModel, int],
+        product_repository: BaseRepository[ProductModel],
     ) -> None:
         """Test filtering with inequality condition."""
         filtered = await product_repository.filter(
@@ -725,7 +684,7 @@ class TestBaseRepositoryFilter:
     @pytest.mark.usefixtures("multiple_products")
     async def test_filters_by_multiple_conditions(
         self,
-        product_repository: BaseRepository[ProductModel, int],
+        product_repository: BaseRepository[ProductModel],
     ) -> None:
         """Test filtering with multiple AND conditions."""
         filtered = await product_repository.filter(
@@ -740,7 +699,7 @@ class TestBaseRepositoryFilter:
     @pytest.mark.usefixtures("multiple_products")
     async def test_filters_by_like_pattern(
         self,
-        product_repository: BaseRepository[ProductModel, int],
+        product_repository: BaseRepository[ProductModel],
     ) -> None:
         """Test filtering with LIKE pattern."""
         filtered = await product_repository.filter(
@@ -752,7 +711,7 @@ class TestBaseRepositoryFilter:
 
     async def test_filters_by_null_value(
         self,
-        article_repository: BaseRepository[ArticleModel, UUID],
+        article_repository: BaseRepository[ArticleModel],
     ) -> None:
         """Test filtering for null values."""
         article = ArticleModel(
@@ -773,7 +732,7 @@ class TestBaseRepositoryFilter:
     @pytest.mark.usefixtures("multiple_products")
     async def test_filters_by_boolean_field(
         self,
-        product_repository: BaseRepository[ProductModel, int],
+        product_repository: BaseRepository[ProductModel],
     ) -> None:
         """Test filtering by boolean field."""
         filtered = await product_repository.filter(
@@ -786,7 +745,7 @@ class TestBaseRepositoryFilter:
     @pytest.mark.usefixtures("multiple_products")
     async def test_returns_empty_list_when_no_matches(
         self,
-        product_repository: BaseRepository[ProductModel, int],
+        product_repository: BaseRepository[ProductModel],
     ) -> None:
         """Test no entities match filter."""
         filtered = await product_repository.filter(
@@ -797,7 +756,7 @@ class TestBaseRepositoryFilter:
 
     async def test_returns_all_matching_entities(
         self,
-        product_repository: BaseRepository[ProductModel, int],
+        product_repository: BaseRepository[ProductModel],
         multiple_products: list[ProductModel],
     ) -> None:
         """Test multiple entities match filter."""
@@ -816,7 +775,7 @@ class TestBaseRepositoryFilterPaginated:
     @pytest.mark.usefixtures("multiple_products")
     async def test_filters_and_paginates_first_page(
         self,
-        product_repository: BaseRepository[ProductModel, int],
+        product_repository: BaseRepository[ProductModel],
     ) -> None:
         """Test filtering with first page pagination."""
         filtered = await product_repository.filter_paginated(
@@ -831,7 +790,7 @@ class TestBaseRepositoryFilterPaginated:
     @pytest.mark.usefixtures("multiple_products")
     async def test_filters_and_paginates_middle_page(
         self,
-        product_repository: BaseRepository[ProductModel, int],
+        product_repository: BaseRepository[ProductModel],
     ) -> None:
         """Test filtering with middle page pagination."""
         filtered = await product_repository.filter_paginated(
@@ -846,7 +805,7 @@ class TestBaseRepositoryFilterPaginated:
     @pytest.mark.usefixtures("multiple_products")
     async def test_filters_with_multiple_conditions_and_pagination(
         self,
-        product_repository: BaseRepository[ProductModel, int],
+        product_repository: BaseRepository[ProductModel],
     ) -> None:
         """Test complex filter with pagination."""
         filtered = await product_repository.filter_paginated(
@@ -863,7 +822,7 @@ class TestBaseRepositoryFilterPaginated:
     @pytest.mark.usefixtures("multiple_products")
     async def test_pagination_applies_to_filtered_results_only(
         self,
-        product_repository: BaseRepository[ProductModel, int],
+        product_repository: BaseRepository[ProductModel],
     ) -> None:
         """Test offset/limit based on filtered set."""
         all_filtered = await product_repository.filter(
@@ -890,7 +849,7 @@ class TestBaseRepositoryFilterPaginated:
     @pytest.mark.usefixtures("multiple_products")
     async def test_returns_empty_list_when_filtered_results_exhausted(
         self,
-        product_repository: BaseRepository[ProductModel, int],
+        product_repository: BaseRepository[ProductModel],
     ) -> None:
         """Test offset beyond filtered count."""
         filtered = await product_repository.filter_paginated(
@@ -904,7 +863,7 @@ class TestBaseRepositoryFilterPaginated:
     @pytest.mark.usefixtures("multiple_products")
     async def test_raises_invalid_pagination_error_for_invalid_limit_with_filter(
         self,
-        product_repository: BaseRepository[ProductModel, int],
+        product_repository: BaseRepository[ProductModel],
     ) -> None:
         """Test filter with limit=0 raises error."""
         with pytest.raises(
@@ -920,7 +879,7 @@ class TestBaseRepositoryFilterPaginated:
     @pytest.mark.usefixtures("multiple_products")
     async def test_raises_invalid_pagination_error_for_invalid_offset_with_filter(
         self,
-        product_repository: BaseRepository[ProductModel, int],
+        product_repository: BaseRepository[ProductModel],
     ) -> None:
         """Test filter with offset=-1 raises error."""
         with pytest.raises(
@@ -939,7 +898,7 @@ class TestBaseRepositoryTransactionIsolation:
 
     async def test_changes_not_visible_across_test_functions(
         self,
-        product_repository: BaseRepository[ProductModel, int],
+        product_repository: BaseRepository[ProductModel],
     ) -> None:
         """Test each test gets clean state."""
         count = await product_repository.count()
@@ -948,7 +907,7 @@ class TestBaseRepositoryTransactionIsolation:
 
     async def test_rollback_occurs_after_test_completion(
         self,
-        product_repository: BaseRepository[ProductModel, int],
+        product_repository: BaseRepository[ProductModel],
     ) -> None:
         """Test transaction rollback."""
         product = ProductModel(
@@ -964,7 +923,7 @@ class TestBaseRepositoryTransactionIsolation:
 
     async def test_each_test_starts_with_clean_database(
         self,
-        product_repository: BaseRepository[ProductModel, int],
+        product_repository: BaseRepository[ProductModel],
     ) -> None:
         """Test no residual data from previous tests."""
         all_products = await product_repository.get_all()
@@ -977,7 +936,7 @@ class TestBaseRepositoryErrorHandling:
 
     async def test_integrity_error_converted_to_repository_integrity_error(
         self,
-        customer_repository: BaseRepository[CustomerModel, int],
+        customer_repository: BaseRepository[CustomerModel],
     ) -> None:
         """Test unique constraint violation conversion."""
         customer1 = CustomerModel(
@@ -1000,7 +959,7 @@ class TestBaseRepositoryErrorHandling:
 
     async def test_error_includes_entity_type_in_message(
         self,
-        customer_repository: BaseRepository[CustomerModel, int],
+        customer_repository: BaseRepository[CustomerModel],
     ) -> None:
         """Test error message contains model name."""
         customer1 = CustomerModel(
@@ -1023,7 +982,7 @@ class TestBaseRepositoryErrorHandling:
 
     async def test_error_includes_operation_context(
         self,
-        customer_repository: BaseRepository[CustomerModel, int],
+        customer_repository: BaseRepository[CustomerModel],
     ) -> None:
         """Test error message contains operation name."""
         customer1 = CustomerModel(
@@ -1048,8 +1007,8 @@ class TestBaseRepositoryErrorHandling:
 
     async def test_foreign_key_violation_converted_to_repository_integrity_error(
         self,
-        customer_repository: BaseRepository[CustomerModel, int],
-        order_repository: BaseRepository[OrderModel, int],
+        customer_repository: BaseRepository[CustomerModel],
+        order_repository: BaseRepository[OrderModel],
         created_customer: CustomerModel,
     ) -> None:
         """Test FK constraint violation conversion."""

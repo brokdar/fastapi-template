@@ -5,7 +5,7 @@ from pydantic import EmailStr
 from sqlalchemy import Column, DateTime, Enum, text
 from sqlmodel import Field
 
-from app.core.base.models import IntModel
+from app.core.base.models import BaseModel
 
 
 class UserRole(StrEnum):
@@ -15,7 +15,7 @@ class UserRole(StrEnum):
     ADMIN = "admin"
 
 
-class User(IntModel, table=True):
+class User(BaseModel, table=True):
     """User model in the database."""
 
     username: str = Field(
