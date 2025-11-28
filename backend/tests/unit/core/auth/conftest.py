@@ -56,7 +56,7 @@ def mock_fastapi_app() -> Mock:
 @pytest.fixture
 def auth_service(
     mock_user_service_dependency: Callable[[], AsyncMock],
-) -> AuthService[int]:
+) -> AuthService:
     """Provide AuthService instance with no providers."""
     return AuthService(
         get_user_service=mock_user_service_dependency,

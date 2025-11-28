@@ -8,7 +8,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, SecretStr
 
-from .models import UserRole
+from .models import UserID, UserRole
 
 
 class UserCreate(BaseModel):
@@ -71,7 +71,7 @@ class UserUpdate(BaseModel):
 class UserResponse(BaseModel):
     """Schema for user data in API responses."""
 
-    id: int = Field(description="Unique user identifier")
+    id: UserID = Field(description="Unique user identifier")
     username: str = Field(description="Username")
     email: EmailStr = Field(description="Email address")
     first_name: str | None = Field(None, description="First name")

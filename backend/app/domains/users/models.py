@@ -6,6 +6,42 @@ from sqlalchemy import Column, DateTime, Enum, text
 from sqlmodel import Field
 
 from app.core.base.models import IntModel
+from app.domains.users.exceptions import InvalidUserIDError
+
+# =============================================================================
+# USER ID TYPE CONFIGURATION
+# =============================================================================
+# To switch to UUID-based users:
+# 1. Change `type UserID = UUID` and update parse_user_id to use UUID()
+# 2. Change User to inherit from UUIDModel instead of IntModel
+# 3. Run database migration
+
+type UserID = int
+
+
+def parse_user_id(value: str) -> UserID:
+    """Parse string to UserID type.
+
+    Args:
+        value: String representation of user ID.
+
+    Returns:
+        Parsed UserID.
+
+    Raises:
+        InvalidUserIDError: If value cannot be parsed to UserID type.
+    """
+    try:
+        return int(value)
+    except ValueError as e:
+        raise InvalidUserIDError(
+            message=f"Invalid user ID format: '{value}'",
+            value=value,
+            expected_type="int",
+        ) from e
+
+
+# =============================================================================
 
 
 class UserRole(StrEnum):

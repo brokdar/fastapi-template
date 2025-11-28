@@ -70,12 +70,21 @@ class BCryptAPIKeyService(APIKeyHasher):
     Attributes:
         PREFIX: The prefix added to all generated API keys ('sk_').
         PREFIX_LENGTH: Number of characters used for key prefix lookup (12).
-        BCRYPT_ROUNDS: Work factor for bcrypt hashing (12 by default).
+        DEFAULT_BCRYPT_ROUNDS: Default work factor for bcrypt hashing (12).
     """
 
     PREFIX: str = "sk_"
     PREFIX_LENGTH: int = 12
-    BCRYPT_ROUNDS: int = 12
+    DEFAULT_BCRYPT_ROUNDS: int = 12
+
+    def __init__(self, bcrypt_rounds: int | None = None) -> None:
+        """Initialize the BCrypt API key service.
+
+        Args:
+            bcrypt_rounds: Work factor for bcrypt hashing. Defaults to 12.
+                          Use lower values (e.g., 4) only in tests for speed.
+        """
+        self._bcrypt_rounds = bcrypt_rounds or self.DEFAULT_BCRYPT_ROUNDS
 
     def generate_key(self) -> tuple[str, str]:
         """Generate a new API key with sk_ prefix.
@@ -98,7 +107,7 @@ class BCryptAPIKeyService(APIKeyHasher):
             str: The bcrypt hashed key.
         """
         return bcrypt.hashpw(
-            key.encode("utf-8"), bcrypt.gensalt(rounds=self.BCRYPT_ROUNDS)
+            key.encode("utf-8"), bcrypt.gensalt(rounds=self._bcrypt_rounds)
         ).decode("utf-8")
 
     def verify_key(self, plain_key: str, hashed_key: str) -> bool:

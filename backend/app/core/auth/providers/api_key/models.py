@@ -10,6 +10,49 @@ from sqlmodel import Field
 
 from app.core.base.models import IntModel
 
+from .exceptions import InvalidAPIKeyIDError
+
+# =============================================================================
+# API KEY ID TYPE CONFIGURATION
+# =============================================================================
+# To switch to UUID-based API keys:
+# 1. Change `type APIKeyID = UUID` and update parse_api_key_id to use UUID()
+# 2. Change APIKey to inherit from UUIDModel instead of IntModel
+# 3. Run database migration
+#
+# IMPORTANT: The user_id field must match the User model's ID type.
+# If switching users to UUID (in app/domains/users/models.py), also update:
+# - user_id: int -> user_id: UUID (line 50)
+# - foreign_key="user.id" remains the same
+# SQLModel requires concrete types (int/UUID), not type aliases.
+
+type APIKeyID = int
+
+
+def parse_api_key_id(value: str) -> APIKeyID:
+    """Parse string to APIKeyID type.
+
+    Args:
+        value: String representation of API key ID.
+
+    Returns:
+        Parsed APIKeyID.
+
+    Raises:
+        InvalidAPIKeyIDError: If value cannot be parsed to APIKeyID type.
+    """
+    try:
+        return int(value)
+    except ValueError as e:
+        raise InvalidAPIKeyIDError(
+            message=f"Invalid API key ID format: '{value}'",
+            value=value,
+            expected_type="int",
+        ) from e
+
+
+# =============================================================================
+
 
 class APIKey(IntModel, table=True):
     """Database model for storing API keys."""

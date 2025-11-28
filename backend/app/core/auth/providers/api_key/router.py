@@ -3,11 +3,12 @@
 from collections.abc import Callable
 
 import structlog
-from fastapi import APIRouter, Depends, Security, status
+from fastapi import APIRouter, Depends, Path, Security, status
 
 from app.dependencies import auth_service
-from app.domains.users.models import User, UserRole
+from app.domains.users.models import User, UserRole, parse_user_id
 
+from .models import parse_api_key_id
 from .schemas import (
     APIKeyCreate,
     APIKeyCreateResponse,
@@ -20,7 +21,7 @@ logger = structlog.get_logger("auth.provider.api_key.router")
 
 
 def create_api_key_router(
-    get_api_key_service: Callable[[], APIKeyService],
+    get_api_key_service: Callable[..., APIKeyService],
 ) -> APIRouter:
     """Create API key management router.
 
@@ -28,7 +29,7 @@ def create_api_key_router(
         get_api_key_service: Dependency factory for APIKeyService instances.
 
     Returns:
-        APIRouter: Router containing API key management endpoints.
+        APIRouter containing API key management endpoints.
     """
     router = APIRouter(prefix="/api-keys", tags=["api-keys"])
 
@@ -39,24 +40,14 @@ def create_api_key_router(
         description="List all API keys for a specific user (admin only).",
     )
     async def admin_list_user_api_keys(
-        user_id: int,
+        user_id: str = Path(..., description="User ID"),
         admin: User = Security(auth_service.require_roles(UserRole.ADMIN)),
         api_key_service: APIKeyService = Depends(get_api_key_service),
     ) -> list[APIKeyListResponse]:
         """Admin: List all API keys for a specific user."""
-        keys = await api_key_service.list_keys(user_id)
-        return [
-            APIKeyListResponse(
-                id=k.pk,
-                user_id=k.user_id,
-                name=k.name,
-                key_prefix=k.key_prefix,
-                created_at=k.created_at,
-                expires_at=k.expires_at,
-                last_used_at=k.last_used_at,
-            )
-            for k in keys
-        ]
+        parsed_user_id = parse_user_id(user_id)
+        keys = await api_key_service.list_keys(parsed_user_id)
+        return [APIKeyListResponse.model_validate(k) for k in keys]
 
     @router.delete(
         "/users/{user_id}/{key_id}",
@@ -65,13 +56,17 @@ def create_api_key_router(
         description="Delete any user's API key (admin only).",
     )
     async def admin_delete_user_api_key(
-        user_id: int,
-        key_id: int,
+        user_id: str = Path(..., description="User ID"),
+        key_id: str = Path(..., description="API key ID"),
         admin: User = Security(auth_service.require_roles(UserRole.ADMIN)),
         api_key_service: APIKeyService = Depends(get_api_key_service),
     ) -> None:
         """Admin: Delete a specific user's API key."""
-        await api_key_service.delete_key_admin(key_id=key_id, admin_id=admin.pk)
+        parsed_key_id = parse_api_key_id(key_id)
+        await api_key_service.delete_key_admin(
+            key_id=parsed_key_id,
+            admin_id=admin.pk,
+        )
         logger.info(
             "api_key_deleted_by_admin_via_api",
             admin_id=admin.pk,
@@ -122,17 +117,7 @@ def create_api_key_router(
     ) -> list[APIKeyResponse]:
         """List all API keys for the current user."""
         keys = await api_key_service.list_keys(user.pk)
-        return [
-            APIKeyResponse(
-                id=k.pk,
-                name=k.name,
-                key_prefix=k.key_prefix,
-                created_at=k.created_at,
-                expires_at=k.expires_at,
-                last_used_at=k.last_used_at,
-            )
-            for k in keys
-        ]
+        return [APIKeyResponse.model_validate(k) for k in keys]
 
     @router.delete(
         "/{key_id}",
@@ -141,12 +126,16 @@ def create_api_key_router(
         description="Delete one of your API keys.",
     )
     async def delete_api_key(
-        key_id: int,
+        key_id: str = Path(..., description="API key ID"),
         user: User = Security(auth_service.require_user),
         api_key_service: APIKeyService = Depends(get_api_key_service),
     ) -> None:
         """Delete an API key owned by the current user."""
-        await api_key_service.delete_key(key_id=key_id, user_id=user.pk)
+        parsed_key_id = parse_api_key_id(key_id)
+        await api_key_service.delete_key(
+            key_id=parsed_key_id,
+            user_id=user.pk,
+        )
         logger.info("api_key_deleted_via_api", user_id=user.pk, key_id=key_id)
 
     return router

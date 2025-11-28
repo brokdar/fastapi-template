@@ -1,12 +1,10 @@
 """Generic base repository with strictly typed pagination validation."""
 
-from uuid import UUID
-
 from sqlalchemy.sql.expression import ColumnElement
 from sqlmodel import func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.core.base.models import BaseModel
+from app.core.base.models import IDType
 from app.core.pagination.validation import validate_pagination
 
 from .exceptions import (
@@ -15,7 +13,7 @@ from .exceptions import (
 )
 
 
-class BaseRepository[T: BaseModel[int] | BaseModel[UUID], ID: int | UUID]:
+class BaseRepository[T, ID: IDType]:
     """Generic base repository for CRUD operations on models with configurable ID types.
 
     This repository provides type-safe CRUD operations that automatically infer

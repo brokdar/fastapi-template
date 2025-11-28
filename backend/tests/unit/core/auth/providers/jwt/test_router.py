@@ -1,7 +1,6 @@
 """Test suite for JWT authentication router."""
 
 from unittest.mock import AsyncMock
-from uuid import UUID
 
 import pytest
 from fastapi import APIRouter
@@ -17,7 +16,7 @@ class TestCreateJWTRouter:
     """Test suite for JWT router creation."""
 
     def test_create_jwt_router_returns_router(
-        self, jwt_provider: JWTAuthProvider[int]
+        self, jwt_provider: JWTAuthProvider
     ) -> None:
         """Test create_jwt_router returns APIRouter instance."""
         router = create_jwt_router(jwt_provider)
@@ -25,7 +24,7 @@ class TestCreateJWTRouter:
         assert isinstance(router, APIRouter)
 
     def test_create_jwt_router_has_correct_prefix(
-        self, jwt_provider: JWTAuthProvider[int]
+        self, jwt_provider: JWTAuthProvider
     ) -> None:
         """Test router has correct prefix."""
         router = create_jwt_router(jwt_provider)
@@ -33,7 +32,7 @@ class TestCreateJWTRouter:
         assert router.prefix == "/jwt"
 
     def test_create_jwt_router_has_two_endpoints(
-        self, jwt_provider: JWTAuthProvider[int]
+        self, jwt_provider: JWTAuthProvider
     ) -> None:
         """Test router has login and refresh endpoints."""
         router = create_jwt_router(jwt_provider)
@@ -42,18 +41,10 @@ class TestCreateJWTRouter:
         assert len(route_paths) == 2
 
     def test_create_jwt_router_works_with_int_id(
-        self, jwt_provider: JWTAuthProvider[int]
+        self, jwt_provider: JWTAuthProvider
     ) -> None:
         """Test router creation with int ID type."""
         router = create_jwt_router(jwt_provider)
-
-        assert isinstance(router, APIRouter)
-
-    def test_create_jwt_router_works_with_uuid_id(
-        self, uuid_jwt_provider: JWTAuthProvider[UUID]
-    ) -> None:
-        """Test router creation with UUID ID type."""
-        router = create_jwt_router(uuid_jwt_provider)
 
         assert isinstance(router, APIRouter)
 
@@ -62,7 +53,7 @@ class TestLoginEndpoint:
     """Test suite for login endpoint registration."""
 
     def test_login_endpoint_exists_in_router(
-        self, jwt_provider: JWTAuthProvider[int]
+        self, jwt_provider: JWTAuthProvider
     ) -> None:
         """Test login endpoint is registered in router."""
         router = create_jwt_router(jwt_provider)
@@ -76,7 +67,7 @@ class TestLoginEndpoint:
         assert login_exists
 
     def test_login_endpoint_accepts_post_method(
-        self, jwt_provider: JWTAuthProvider[int]
+        self, jwt_provider: JWTAuthProvider
     ) -> None:
         """Test login endpoint accepts POST method."""
         router = create_jwt_router(jwt_provider)
@@ -92,7 +83,7 @@ class TestLoginEndpoint:
         assert "POST" in login_route.methods
 
     def test_login_endpoint_has_correct_response_model(
-        self, jwt_provider: JWTAuthProvider[int]
+        self, jwt_provider: JWTAuthProvider
     ) -> None:
         """Test login endpoint declares correct response model."""
         router = create_jwt_router(jwt_provider)
@@ -107,9 +98,7 @@ class TestLoginEndpoint:
         assert isinstance(login_route, APIRoute)
         assert login_route.response_model == TokenResponse
 
-    def test_login_endpoint_has_summary(
-        self, jwt_provider: JWTAuthProvider[int]
-    ) -> None:
+    def test_login_endpoint_has_summary(self, jwt_provider: JWTAuthProvider) -> None:
         """Test login endpoint has descriptive summary."""
         router = create_jwt_router(jwt_provider)
 
@@ -128,7 +117,7 @@ class TestRefreshEndpoint:
     """Test suite for token refresh endpoint registration."""
 
     def test_refresh_endpoint_exists_in_router(
-        self, jwt_provider: JWTAuthProvider[int]
+        self, jwt_provider: JWTAuthProvider
     ) -> None:
         """Test refresh endpoint is registered in router."""
         router = create_jwt_router(jwt_provider)
@@ -142,7 +131,7 @@ class TestRefreshEndpoint:
         assert refresh_exists
 
     def test_refresh_endpoint_accepts_post_method(
-        self, jwt_provider: JWTAuthProvider[int]
+        self, jwt_provider: JWTAuthProvider
     ) -> None:
         """Test refresh endpoint accepts POST method."""
         router = create_jwt_router(jwt_provider)
@@ -158,7 +147,7 @@ class TestRefreshEndpoint:
         assert "POST" in refresh_route.methods
 
     def test_refresh_endpoint_has_correct_response_model(
-        self, jwt_provider: JWTAuthProvider[int]
+        self, jwt_provider: JWTAuthProvider
     ) -> None:
         """Test refresh endpoint declares correct response model."""
         router = create_jwt_router(jwt_provider)
@@ -173,9 +162,7 @@ class TestRefreshEndpoint:
         assert isinstance(refresh_route, APIRoute)
         assert refresh_route.response_model == TokenResponse
 
-    def test_refresh_endpoint_has_summary(
-        self, jwt_provider: JWTAuthProvider[int]
-    ) -> None:
+    def test_refresh_endpoint_has_summary(self, jwt_provider: JWTAuthProvider) -> None:
         """Test refresh endpoint has descriptive summary."""
         router = create_jwt_router(jwt_provider)
 
@@ -195,7 +182,7 @@ class TestRouterIntegration:
 
     def test_router_binds_provider_via_closure(
         self,
-        jwt_provider: JWTAuthProvider[int],
+        jwt_provider: JWTAuthProvider,
     ) -> None:
         """Test router endpoints have access to provider instance."""
         router = create_jwt_router(jwt_provider)
@@ -218,9 +205,7 @@ class TestRouterIntegration:
 
         pytest.fail("No route found with provider in closure")
 
-    def test_router_can_be_included_in_app(
-        self, jwt_provider: JWTAuthProvider[int]
-    ) -> None:
+    def test_router_can_be_included_in_app(self, jwt_provider: JWTAuthProvider) -> None:
         """Test router can be included in FastAPI application."""
         from fastapi import FastAPI
 
@@ -240,7 +225,7 @@ class TestLoginEndpointBehavior:
     @pytest.mark.asyncio
     async def test_authenticates_user_with_valid_credentials(
         self,
-        jwt_provider: JWTAuthProvider[int],
+        jwt_provider: JWTAuthProvider,
         sample_user: User,
         mock_user_service: AsyncMock,
     ) -> None:
@@ -282,7 +267,7 @@ class TestLoginEndpointBehavior:
     @pytest.mark.asyncio
     async def test_raises_invalid_credentials_error_when_user_not_found(
         self,
-        jwt_provider: JWTAuthProvider[int],
+        jwt_provider: JWTAuthProvider,
         mock_user_service: AsyncMock,
     ) -> None:
         """Test login fails with InvalidCredentialsError for non-existent user."""
@@ -315,7 +300,7 @@ class TestLoginEndpointBehavior:
     @pytest.mark.asyncio
     async def test_raises_invalid_credentials_error_when_password_incorrect(
         self,
-        jwt_provider: JWTAuthProvider[int],
+        jwt_provider: JWTAuthProvider,
         sample_user: User,
         mock_user_service: AsyncMock,
     ) -> None:
@@ -349,7 +334,7 @@ class TestLoginEndpointBehavior:
     @pytest.mark.asyncio
     async def test_raises_inactive_user_error_when_user_inactive(
         self,
-        jwt_provider: JWTAuthProvider[int],
+        jwt_provider: JWTAuthProvider,
         inactive_user: User,
         mock_user_service: AsyncMock,
     ) -> None:
@@ -387,7 +372,7 @@ class TestRefreshEndpointBehavior:
     @pytest.mark.asyncio
     async def test_refreshes_token_with_valid_refresh_token(
         self,
-        jwt_provider: JWTAuthProvider[int],
+        jwt_provider: JWTAuthProvider,
         valid_refresh_token: str,
         sample_user: User,
         mock_user_service: AsyncMock,
@@ -427,7 +412,7 @@ class TestRefreshEndpointBehavior:
     @pytest.mark.asyncio
     async def test_returns_different_tokens_on_refresh(
         self,
-        jwt_provider: JWTAuthProvider[int],
+        jwt_provider: JWTAuthProvider,
         valid_refresh_token: str,
         sample_user: User,
         mock_user_service: AsyncMock,
@@ -469,7 +454,7 @@ class TestRefreshEndpointBehavior:
     @pytest.mark.asyncio
     async def test_raises_invalid_token_error_when_malformed(
         self,
-        jwt_provider: JWTAuthProvider[int],
+        jwt_provider: JWTAuthProvider,
         malformed_token: str,
         mock_user_service: AsyncMock,
     ) -> None:
@@ -499,7 +484,7 @@ class TestRefreshEndpointBehavior:
     @pytest.mark.asyncio
     async def test_raises_token_expired_error_when_expired(
         self,
-        jwt_provider: JWTAuthProvider[int],
+        jwt_provider: JWTAuthProvider,
         expired_token: str,
         mock_user_service: AsyncMock,
     ) -> None:
@@ -529,7 +514,7 @@ class TestRefreshEndpointBehavior:
     @pytest.mark.asyncio
     async def test_raises_invalid_token_error_when_wrong_type(
         self,
-        jwt_provider: JWTAuthProvider[int],
+        jwt_provider: JWTAuthProvider,
         valid_access_token: str,
         mock_user_service: AsyncMock,
     ) -> None:
@@ -559,7 +544,7 @@ class TestRefreshEndpointBehavior:
     @pytest.mark.asyncio
     async def test_raises_user_not_found_error_when_user_deleted(
         self,
-        jwt_provider: JWTAuthProvider[int],
+        jwt_provider: JWTAuthProvider,
         valid_refresh_token: str,
         mock_user_service: AsyncMock,
     ) -> None:
@@ -592,7 +577,7 @@ class TestRefreshEndpointBehavior:
     @pytest.mark.asyncio
     async def test_raises_inactive_user_error_when_user_deactivated(
         self,
-        jwt_provider: JWTAuthProvider[int],
+        jwt_provider: JWTAuthProvider,
         valid_refresh_token: str,
         inactive_user: User,
         mock_user_service: AsyncMock,

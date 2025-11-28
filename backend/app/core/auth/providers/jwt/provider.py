@@ -6,7 +6,6 @@ refresh token support, including token rotation for enhanced security.
 
 from datetime import UTC, datetime, timedelta
 from typing import Any
-from uuid import UUID
 
 import jwt
 import structlog
@@ -27,7 +26,7 @@ from app.domains.users.models import User
 logger = structlog.get_logger("auth.provider.jwt")
 
 
-class JWTAuthProvider[ID: (int, UUID)](AuthProvider[ID]):
+class JWTAuthProvider(AuthProvider):
     """JWT authentication provider implementing RFC 7519 specification.
 
     Provides stateless authentication using JSON Web Tokens with support for
@@ -249,7 +248,7 @@ class JWTAuthProvider[ID: (int, UUID)](AuthProvider[ID]):
         return len(parts) == 2 and parts[0].lower() == "bearer"
 
     async def authenticate(
-        self, request: Request, user_service: AuthenticationUserService[ID]
+        self, request: Request, user_service: AuthenticationUserService
     ) -> User | None:
         """Authenticate request using JWT access token.
 

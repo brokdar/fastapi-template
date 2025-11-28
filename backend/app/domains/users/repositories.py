@@ -1,19 +1,17 @@
-from uuid import UUID
-
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.base.repositories.base import BaseRepository
 from app.core.base.repositories.exceptions import handle_repository_errors
 
-from .models import User
+from .models import User, UserID
 
 
-class UserRepository[ID: (int, UUID)](BaseRepository[User, ID]):
+class UserRepository(BaseRepository[User, UserID]):
     """Repository for user-specific database operations.
 
     Extends BaseRepository to provide CRUD operations and custom queries
-    for User entities with configurable ID type.
+    for User entities. Uses UserID type alias defined in models.py.
     """
 
     def __init__(self, session: AsyncSession) -> None:
