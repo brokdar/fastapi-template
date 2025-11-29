@@ -4,41 +4,26 @@ This module contains the business logic for user management operations.
 All business rules, validation, and orchestration logic is handled here.
 """
 
-from uuid import UUID
-
 import structlog
 
 from app.core.security.password import PasswordHasher
 
 from .exceptions import UserAlreadyExistsError, UserNotFoundError
-from .mixins import IntIDMixin, UUIDIDMixin
-from .models import User
+from .models import User, UserID, parse_user_id
 from .repositories import UserRepository
 from .schemas import UserCreate, UserUpdate
 
 
-class UserService[ID: (int, UUID)]:
+class UserService:
     """Service class for user business logic operations.
 
-    This class defines the core business logic and an abstract parse_id
-    method. Concrete implementations should compose this class with an
-    ID parsing mixin (IntIDMixin or UUIDIDMixin) via multiple inheritance.
-
-    The mixin must be listed BEFORE UserService in the inheritance order
-    to ensure Python's Method Resolution Order (MRO) resolves parse_id
-    to the mixin's implementation.
-
-    Example:
-        >>> from app.domains.users.mixins import IntIDMixin
-        >>> class IntUserService(IntIDMixin, UserService[int]):
-        ...     pass
-        >>> service = IntUserService(repository, password_service)
-        >>> user_id = service.parse_id("123")  # Returns 123 (int)
+    This class handles core business logic for user management. Uses UserID
+    type alias from models.py for ID type configuration.
     """
 
     def __init__(
         self,
-        user_repository: UserRepository[ID],
+        user_repository: UserRepository,
         password_service: PasswordHasher,
     ) -> None:
         """Initialize UserService with repository dependency.
@@ -47,33 +32,23 @@ class UserService[ID: (int, UUID)]:
             user_repository: Repository for user data access operations
             password_service: Service for password hashing and verification
         """
-        self._repository: UserRepository[ID] = user_repository
+        self._repository: UserRepository = user_repository
         self._password_service = password_service
         self.logger = structlog.get_logger("users")
 
-    def parse_id(self, value: str) -> ID:
-        """Parse string ID to typed ID (implemented by mixins).
-
-        This method is abstract and must be implemented by composing
-        UserService with an ID mixin (IntIDMixin or UUIDIDMixin) via
-        multiple inheritance. The mixin implementation will be resolved
-        via Python's Method Resolution Order (MRO).
+    def parse_id(self, value: str) -> UserID:
+        """Parse string ID to UserID type.
 
         Args:
             value: String representation of user ID.
 
         Returns:
-            Typed ID instance.
+            Parsed UserID.
 
         Raises:
-            InvalidUserIDError: If parsing fails (raised by mixin).
-            NotImplementedError: If UserService is used without a mixin.
+            ValueError: If parsing fails.
         """
-        raise NotImplementedError(
-            "UserService must be composed with an ID mixin "
-            "(IntIDMixin or UUIDIDMixin) to provide parse_id implementation. "
-            "Example: class IntUserService(IntIDMixin, UserService[int]): pass"
-        )
+        return parse_user_id(value)
 
     async def verify_password(self, user: User, password: str) -> bool:
         """Verify user password against stored hash.
@@ -88,7 +63,7 @@ class UserService[ID: (int, UUID)]:
         return self._password_service.verify_password(password, user.hashed_password)
 
     async def _validate_email_unique(
-        self, email: str, exclude_user_id: ID | None = None
+        self, email: str, exclude_user_id: UserID | None = None
     ) -> None:
         """Validate that email is unique in the system.
 
@@ -108,7 +83,7 @@ class UserService[ID: (int, UUID)]:
             )
 
     async def _validate_username_unique(
-        self, username: str, exclude_user_id: ID | None = None
+        self, username: str, exclude_user_id: UserID | None = None
     ) -> None:
         """Validate that username is unique in the system.
 
@@ -127,7 +102,7 @@ class UserService[ID: (int, UUID)]:
                 value=username,
             )
 
-    async def get_by_id(self, user_id: ID) -> User:
+    async def get_by_id(self, user_id: UserID) -> User:
         """Retrieve a user by ID.
 
         Args:
@@ -261,7 +236,7 @@ class UserService[ID: (int, UUID)]:
 
         return created_user
 
-    async def update_user(self, user_id: ID, user_update: UserUpdate) -> User:
+    async def update_user(self, user_id: UserID, user_update: UserUpdate) -> User:
         """Update an existing user.
 
         Args:
@@ -307,7 +282,7 @@ class UserService[ID: (int, UUID)]:
 
         return updated_user
 
-    async def delete_user(self, user_id: ID) -> None:
+    async def delete_user(self, user_id: UserID) -> None:
         """Delete a user.
 
         Args:
@@ -330,25 +305,3 @@ class UserService[ID: (int, UUID)]:
             username=existing_user.username,
             operation="delete",
         )
-
-
-class IntUserService(IntIDMixin, UserService[int]):
-    """UserService with integer ID parsing via IntIDMixin composition.
-
-    MRO: IntUserService -> IntIDMixin -> UserService[int]
-    The IntIDMixin.parse_id method overrides UserService.parse_id via
-    Python's Method Resolution Order, providing integer ID parsing implementation.
-    """
-
-    pass
-
-
-class UUIDUserService(UUIDIDMixin, UserService[UUID]):
-    """UserService with UUID ID parsing via UUIDIDMixin composition.
-
-    MRO: UUIDUserService -> UUIDIDMixin -> UserService[UUID]
-    The UUIDIDMixin.parse_id method overrides UserService.parse_id via
-    Python's Method Resolution Order, providing UUID ID parsing implementation.
-    """
-
-    pass

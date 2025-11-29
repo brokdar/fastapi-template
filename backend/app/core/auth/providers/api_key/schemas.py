@@ -4,6 +4,10 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.domains.users.models import UserID
+
+from .models import APIKeyID
+
 
 class APIKeyCreate(BaseModel):
     """Request schema for creating a new API key."""
@@ -25,7 +29,7 @@ class APIKeyCreate(BaseModel):
 class APIKeyResponse(BaseModel):
     """Response schema for API key metadata (excludes secret)."""
 
-    id: int
+    id: APIKeyID
     name: str
     key_prefix: str = Field(..., description="First 12 chars (e.g., 'sk_a1b2c3d4e5')")
     created_at: datetime
@@ -46,8 +50,8 @@ class APIKeyCreateResponse(APIKeyResponse):
 class APIKeyListResponse(BaseModel):
     """Response schema for admin listing of API keys with user context."""
 
-    id: int
-    user_id: int
+    id: APIKeyID
+    user_id: UserID
     name: str
     key_prefix: str
     created_at: datetime

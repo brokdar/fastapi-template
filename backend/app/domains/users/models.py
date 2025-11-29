@@ -1,11 +1,52 @@
 from datetime import UTC, datetime
 from enum import StrEnum
+from typing import TypeAlias
 
 from pydantic import EmailStr
 from sqlalchemy import Column, DateTime, Enum, text
 from sqlmodel import Field
 
 from app.core.base.models import IntModel
+from app.domains.users.exceptions import InvalidUserIDError
+
+# =============================================================================
+# USER ID TYPE CONFIGURATION
+# =============================================================================
+# To switch to UUID-based users:
+# 1. Change `UserID: TypeAlias = UUID` and update parse_user_id to use UUID()
+# 2. Change User to inherit from UUIDModel instead of IntModel
+# 3. Run database migration
+#
+# Note: We use TypeAlias (PEP 613) instead of `type` (PEP 695) because
+# SQLModel's type resolution uses issubclass() which doesn't work with
+# PEP 695 TypeAliasType objects. See: github.com/fastapi/sqlmodel/discussions/1204
+
+UserID: TypeAlias = int  # noqa: UP040 - SQLModel requires TypeAlias, not PEP 695
+
+
+def parse_user_id(value: str) -> UserID:
+    """Parse string to UserID type.
+
+    Args:
+        value: String representation of user ID.
+
+    Returns:
+        Parsed UserID.
+
+    Raises:
+        InvalidUserIDError: If value cannot be parsed to UserID type.
+    """
+    try:
+        return int(value)
+    except ValueError as e:
+        raise InvalidUserIDError(
+            message=f"Invalid user ID format: '{value}'",
+            value=value,
+            expected_type="int",
+        ) from e
+
+
+# =============================================================================
 
 
 class UserRole(StrEnum):

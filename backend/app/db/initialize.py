@@ -45,7 +45,7 @@ async def ensure_super_user(session: AsyncSession) -> None:
         ValidationError: If super user credentials from settings are invalid.
         DatabaseError: If database operations fail during user creation.
     """
-    service = UserService(UserRepository(session), password_service)
+    service: UserService = UserService(UserRepository(session), password_service)
     settings = get_settings()
     try:
         await service.get_by_name(settings.super_user.name)

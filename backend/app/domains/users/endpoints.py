@@ -7,7 +7,7 @@ Follows FastAPI best practices with proper validation, documentation, and error 
 from typing import Annotated
 
 import structlog
-from fastapi import Security, status
+from fastapi import Path, Security, status
 from fastapi.routing import APIRouter
 
 from app.core.exceptions.schemas import (
@@ -17,7 +17,7 @@ from app.core.exceptions.schemas import (
 )
 from app.core.pagination import Page, PaginationDependency
 from app.dependencies import UserServiceDependency, auth_service
-from app.domains.users.models import User, UserRole
+from app.domains.users.models import User, UserRole, parse_user_id
 
 from .schemas import UserCreate, UserResponse, UserUpdate
 
@@ -196,15 +196,16 @@ async def update_user_profile(
     },
 )
 async def get_user(
-    user_id: int,
     user_service: UserServiceDependency,
+    user_id: str = Path(..., description="User ID"),
 ) -> UserResponse:
     """Get a user by their ID.
 
     Returns the full user information for the specified user ID.
     Raises 404 if the user does not exist.
     """
-    user = await user_service.get_by_id(user_id)
+    parsed_user_id = parse_user_id(user_id)
+    user = await user_service.get_by_id(parsed_user_id)
     return UserResponse.model_validate(user)
 
 
@@ -270,9 +271,9 @@ async def create_user(
     },
 )
 async def update_user(
-    user_id: int,
     user_update: UserUpdate,
     user_service: UserServiceDependency,
+    user_id: str = Path(..., description="User ID"),
 ) -> UserResponse:
     """Update an existing user.
 
@@ -280,7 +281,8 @@ async def update_user(
     Username and email must remain unique if updated.
     Returns the updated user information.
     """
-    updated_user = await user_service.update_user(user_id, user_update)
+    parsed_user_id = parse_user_id(user_id)
+    updated_user = await user_service.update_user(parsed_user_id, user_update)
     return UserResponse.model_validate(updated_user)
 
 
@@ -306,8 +308,8 @@ async def update_user(
     },
 )
 async def delete_user(
-    user_id: int,
     user_service: UserServiceDependency,
+    user_id: str = Path(..., description="User ID"),
 ) -> None:
     """Delete a user by their ID.
 
@@ -315,4 +317,5 @@ async def delete_user(
         user_id: The unique identifier of the user to delete.
         user_service: Injected user service dependency.
     """
-    await user_service.delete_user(user_id)
+    parsed_user_id = parse_user_id(user_id)
+    await user_service.delete_user(parsed_user_id)

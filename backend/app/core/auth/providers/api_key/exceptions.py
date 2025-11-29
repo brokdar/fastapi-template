@@ -4,6 +4,7 @@ This module defines exceptions specific to API key operations.
 All exceptions extend ApplicationError and provide domain-specific error handling.
 """
 
+from app.core.base.models import IDType
 from app.core.exceptions.base import ApplicationError, ErrorCode
 
 
@@ -13,7 +14,7 @@ class APIKeyNotFoundError(ApplicationError):
     def __init__(
         self,
         message: str = "API key not found",
-        key_id: int | None = None,
+        key_id: IDType | None = None,
     ) -> None:
         """Initialize APIKeyNotFoundError.
 
@@ -21,7 +22,9 @@ class APIKeyNotFoundError(ApplicationError):
             message: Error message describing the specific API key not found case.
             key_id: Optional API key identifier for additional context.
         """
-        details: dict[str, int] = {"key_id": key_id} if key_id is not None else {}
+        details: dict[str, int | str] = {}
+        if key_id is not None:
+            details["key_id"] = key_id if isinstance(key_id, int) else str(key_id)
         super().__init__(
             message=message,
             error_code=ErrorCode.RESOURCE_NOT_FOUND,
@@ -66,7 +69,7 @@ class APIKeyExpiredError(ApplicationError):
     def __init__(
         self,
         message: str = "API key has expired",
-        key_id: int | None = None,
+        key_id: IDType | None = None,
     ) -> None:
         """Initialize APIKeyExpiredError.
 
@@ -74,7 +77,9 @@ class APIKeyExpiredError(ApplicationError):
             message: Error message describing the expiration.
             key_id: Optional API key identifier for additional context.
         """
-        details: dict[str, int] = {"key_id": key_id} if key_id is not None else {}
+        details: dict[str, int | str] = {}
+        if key_id is not None:
+            details["key_id"] = key_id if isinstance(key_id, int) else str(key_id)
         super().__init__(
             message=message,
             error_code=ErrorCode.AUTHENTICATION_ERROR,
@@ -106,4 +111,34 @@ class InvalidAPIKeyError(ApplicationError):
             error_code=ErrorCode.AUTHENTICATION_ERROR,
             status_code=401,
             details=details,
+        )
+
+
+class InvalidAPIKeyIDError(ApplicationError):
+    """Raised when API key ID parsing or validation fails."""
+
+    def __init__(
+        self,
+        message: str = "Invalid API key ID format",
+        value: str | None = None,
+        expected_type: str | None = None,
+    ) -> None:
+        """Initialize InvalidAPIKeyIDError.
+
+        Args:
+            message: Error message describing the ID parsing failure.
+            value: The invalid value that failed parsing.
+            expected_type: The expected ID type (e.g., "int", "UUID").
+        """
+        details: dict[str, str] = {}
+        if value is not None:
+            details["value"] = value
+        if expected_type is not None:
+            details["expected_type"] = expected_type
+
+        super().__init__(
+            message=message,
+            error_code=ErrorCode.VALIDATION_ERROR,
+            status_code=400,
+            details=details if details else None,
         )

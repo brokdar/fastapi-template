@@ -7,8 +7,8 @@ from app.core.security.hasher import BCryptAPIKeyService
 
 @pytest.fixture
 def api_key_hasher() -> BCryptAPIKeyService:
-    """Provide BCrypt API key hasher instance."""
-    return BCryptAPIKeyService()
+    """Provide BCrypt API key hasher instance with fast hashing for tests."""
+    return BCryptAPIKeyService(bcrypt_rounds=4)
 
 
 class TestBCryptAPIKeyService:

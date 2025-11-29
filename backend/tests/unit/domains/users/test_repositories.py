@@ -10,7 +10,7 @@ from app.domains.users.repositories import UserRepository
 
 
 @pytest.fixture
-def user_repository(mock_session: AsyncMock) -> UserRepository[int]:
+def user_repository(mock_session: AsyncMock) -> UserRepository:
     """Return a UserRepository instance with a mocked session."""
     return UserRepository(mock_session)
 
@@ -37,7 +37,7 @@ class TestUserRepositoryGetByName:
     @pytest.mark.asyncio
     async def test_retrieves_user_by_name_when_exists(
         self,
-        user_repository: UserRepository[int],
+        user_repository: UserRepository,
         regular_user: User,
         mock_db_result_with_user: MagicMock,
         mocker: MockerFixture,
@@ -57,7 +57,7 @@ class TestUserRepositoryGetByName:
     @pytest.mark.asyncio
     async def test_returns_none_when_user_name_not_found(
         self,
-        user_repository: UserRepository[int],
+        user_repository: UserRepository,
         mock_db_result: MagicMock,
         mocker: MockerFixture,
     ) -> None:
@@ -74,7 +74,7 @@ class TestUserRepositoryGetByName:
     @pytest.mark.asyncio
     async def test_generates_correct_select_statement_for_name_query(
         self,
-        user_repository: UserRepository[int],
+        user_repository: UserRepository,
         mock_db_result: MagicMock,
         mocker: MockerFixture,
     ) -> None:
@@ -98,7 +98,7 @@ class TestUserRepositoryGetByName:
     @pytest.mark.asyncio
     async def test_handles_empty_search_values(
         self,
-        user_repository: UserRepository[int],
+        user_repository: UserRepository,
         search_value: str,
         mock_db_result: MagicMock,
         mocker: MockerFixture,
@@ -116,7 +116,7 @@ class TestUserRepositoryGetByName:
     @pytest.mark.asyncio
     async def test_calls_session_exec_once(
         self,
-        user_repository: UserRepository[int],
+        user_repository: UserRepository,
         mock_db_result: MagicMock,
         mocker: MockerFixture,
     ) -> None:
@@ -136,7 +136,7 @@ class TestUserRepositoryGetByMail:
     @pytest.mark.asyncio
     async def test_retrieves_user_by_email_when_exists(
         self,
-        user_repository: UserRepository[int],
+        user_repository: UserRepository,
         regular_user: User,
         mock_db_result_with_user: MagicMock,
         mocker: MockerFixture,
@@ -156,7 +156,7 @@ class TestUserRepositoryGetByMail:
     @pytest.mark.asyncio
     async def test_returns_none_when_user_email_not_found(
         self,
-        user_repository: UserRepository[int],
+        user_repository: UserRepository,
         mock_db_result: MagicMock,
         mocker: MockerFixture,
     ) -> None:
@@ -173,7 +173,7 @@ class TestUserRepositoryGetByMail:
     @pytest.mark.asyncio
     async def test_generates_correct_select_statement_for_email_query(
         self,
-        user_repository: UserRepository[int],
+        user_repository: UserRepository,
         mock_db_result: MagicMock,
         mocker: MockerFixture,
     ) -> None:
@@ -197,7 +197,7 @@ class TestUserRepositoryGetByMail:
     @pytest.mark.asyncio
     async def test_handles_empty_search_values(
         self,
-        user_repository: UserRepository[int],
+        user_repository: UserRepository,
         search_value: str,
         mock_db_result: MagicMock,
         mocker: MockerFixture,
@@ -215,7 +215,7 @@ class TestUserRepositoryGetByMail:
     @pytest.mark.asyncio
     async def test_calls_session_exec_once(
         self,
-        user_repository: UserRepository[int],
+        user_repository: UserRepository,
         mock_db_result: MagicMock,
         mocker: MockerFixture,
     ) -> None:

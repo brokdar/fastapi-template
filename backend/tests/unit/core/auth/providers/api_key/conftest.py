@@ -18,8 +18,8 @@ VALID_TEST_KEY_PREFIX = "sk_012345678"  # First 12 chars
 
 @pytest.fixture
 def api_key_hasher() -> BCryptAPIKeyService:
-    """Provide BCrypt API key hasher instance."""
-    return BCryptAPIKeyService()
+    """Provide BCrypt API key hasher instance with fast hashing for tests."""
+    return BCryptAPIKeyService(bcrypt_rounds=4)
 
 
 @pytest.fixture
@@ -29,7 +29,7 @@ def mock_get_api_key_service() -> Mock:
 
 
 @pytest.fixture
-def api_key_provider(mock_get_api_key_service: Mock) -> APIKeyProvider[int]:
+def api_key_provider(mock_get_api_key_service: Mock) -> APIKeyProvider:
     """Provide APIKeyProvider instance with default settings."""
     return APIKeyProvider(
         get_api_key_service=mock_get_api_key_service,

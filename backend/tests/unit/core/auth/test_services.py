@@ -12,6 +12,7 @@ from app.core.auth.exceptions import InvalidTokenError
 from app.core.auth.services import AuthService
 from app.core.exceptions import AuthorizationError
 from app.domains.users.models import User, UserRole
+from app.domains.users.services import UserService
 
 
 class TestAuthServiceAuthenticate:
@@ -155,7 +156,7 @@ class TestAuthServiceAuthenticate:
     async def test_raises_invalid_token_error_with_empty_provider_list(
         self,
         mock_request: Mock,
-        auth_service: AuthService[int],
+        auth_service: AuthService,
     ) -> None:
         """Test InvalidTokenError when no providers configured."""
         user_service = AsyncMock()
@@ -197,7 +198,7 @@ class TestAuthServiceRequireUser:
 
     def test_returns_dependency_function(
         self,
-        auth_service: AuthService[int],
+        auth_service: AuthService,
     ) -> None:
         """Test that require_user property returns callable."""
         dependency = auth_service.require_user
@@ -233,7 +234,7 @@ class TestAuthServiceRequireUser:
     async def test_dependency_raises_invalid_token_error_when_authentication_fails(
         self,
         mock_request: Mock,
-        auth_service: AuthService[int],
+        auth_service: AuthService,
     ) -> None:
         """Test dependency raises InvalidTokenError when authentication fails."""
         user_service = AsyncMock()
@@ -248,7 +249,7 @@ class TestAuthServiceRequireRoles:
 
     def test_returns_dependency_function(
         self,
-        auth_service: AuthService[int],
+        auth_service: AuthService,
     ) -> None:
         """Test that require_roles method returns callable."""
         dependency = auth_service.require_roles(UserRole.USER)
@@ -258,7 +259,7 @@ class TestAuthServiceRequireRoles:
     @pytest.mark.asyncio
     async def test_dependency_authorizes_user_with_correct_role(
         self,
-        auth_service: AuthService[int],
+        auth_service: AuthService,
         regular_user: User,
     ) -> None:
         """Test dependency authorizes user with matching role."""
@@ -271,7 +272,7 @@ class TestAuthServiceRequireRoles:
     @pytest.mark.asyncio
     async def test_dependency_allows_user_with_one_of_multiple_required_roles(
         self,
-        auth_service: AuthService[int],
+        auth_service: AuthService,
         admin_user: User,
     ) -> None:
         """Test dependency allows user with one of multiple required roles."""
@@ -284,7 +285,7 @@ class TestAuthServiceRequireRoles:
     @pytest.mark.asyncio
     async def test_raises_authorization_error_when_user_lacks_required_role(
         self,
-        auth_service: AuthService[int],
+        auth_service: AuthService,
         regular_user: User,
     ) -> None:
         """Test AuthorizationError when user lacks required role."""
@@ -344,7 +345,7 @@ class TestAuthServiceRegisterRoutes:
 
     def test_handles_empty_provider_list(
         self,
-        auth_service: AuthService[int],
+        auth_service: AuthService,
         mock_fastapi_app: Mock,
     ) -> None:
         """Test register_routes works with no providers."""
@@ -382,7 +383,7 @@ class TestAuthServiceGetDependencySignature:
         mock_user_service_dependency: Callable[[], AsyncMock],
     ) -> None:
         """Test signature generation with empty provider list."""
-        auth_service = AuthService[int](
+        auth_service = AuthService(
             get_user_service=mock_user_service_dependency,
             providers=[],
         )
@@ -400,7 +401,7 @@ class TestAuthServiceGetDependencySignature:
     ) -> None:
         """Test signature generation with single provider."""
         provider = create_auth_provider(name="jwt")
-        auth_service = AuthService[int](
+        auth_service = AuthService(
             get_user_service=mock_user_service_dependency,
             providers=[provider],
         )
@@ -424,7 +425,7 @@ class TestAuthServiceGetDependencySignature:
         provider1 = create_auth_provider(name="jwt")
         provider2 = create_auth_provider(name="api_key")
         provider3 = create_auth_provider(name="oauth2")
-        auth_service = AuthService[int](
+        auth_service = AuthService(
             get_user_service=mock_user_service_dependency,
             providers=[provider1, provider2, provider3],
         )
@@ -463,7 +464,7 @@ class TestAuthServiceGetDependencySignature:
     ) -> None:
         """Test parameter naming with underscores in provider name."""
         provider = create_auth_provider(name="jwt_bearer")
-        auth_service = AuthService[int](
+        auth_service = AuthService(
             get_user_service=mock_user_service_dependency,
             providers=[provider],
         )
@@ -487,7 +488,7 @@ class TestAuthServiceGetDependencySignature:
         scheme2 = Mock(spec=SecurityBase, name="jwt_scheme_2")
         provider1 = create_auth_provider(name="jwt", security_scheme=scheme1)
         provider2 = create_auth_provider(name="jwt", security_scheme=scheme2)
-        auth_service = AuthService[int](
+        auth_service = AuthService(
             get_user_service=mock_user_service_dependency,
             providers=[provider1, provider2],
         )
@@ -516,7 +517,7 @@ class TestAuthServiceGetDependencySignature:
         provider1 = create_auth_provider(name="oauth2", security_scheme=scheme1)
         provider2 = create_auth_provider(name="oauth2", security_scheme=scheme2)
         provider3 = create_auth_provider(name="oauth2", security_scheme=scheme3)
-        auth_service = AuthService[int](
+        auth_service = AuthService(
             get_user_service=mock_user_service_dependency,
             providers=[provider1, provider2, provider3],
         )
@@ -544,7 +545,7 @@ class TestAuthServiceGetDependencySignature:
         provider1 = create_auth_provider(name="jwt")
         provider2 = create_auth_provider(name="jwt")
         provider3 = create_auth_provider(name="api_key")
-        auth_service = AuthService[int](
+        auth_service = AuthService(
             get_user_service=mock_user_service_dependency,
             providers=[provider1, provider2, provider3],
         )
@@ -570,7 +571,7 @@ class TestAuthServiceGetDependencySignature:
         provider1 = create_auth_provider(name="jwt")
         provider2 = create_auth_provider(name="oauth2")
         provider3 = create_auth_provider(name="oauth2")
-        auth_service = AuthService[int](
+        auth_service = AuthService(
             get_user_service=mock_user_service_dependency,
             providers=[provider1, provider2, provider3],
         )
@@ -597,7 +598,7 @@ class TestAuthServiceGetDependencySignature:
         provider3 = create_auth_provider(name="api_key")
         provider4 = create_auth_provider(name="jwt")
         provider5 = create_auth_provider(name="api_key")
-        auth_service = AuthService[int](
+        auth_service = AuthService(
             get_user_service=mock_user_service_dependency,
             providers=[provider1, provider2, provider3, provider4, provider5],
         )
@@ -623,7 +624,7 @@ class TestAuthServiceGetDependencySignature:
         """Test all parameters have correct types and kinds."""
         provider1 = create_auth_provider(name="jwt")
         provider2 = create_auth_provider(name="api_key")
-        auth_service = AuthService[int](
+        auth_service = AuthService(
             get_user_service=mock_user_service_dependency,
             providers=[provider1, provider2],
         )
@@ -654,7 +655,7 @@ class TestAuthServiceGetDependencySignature:
         """Test all parameter annotations are correct."""
         provider1 = create_auth_provider(name="jwt")
         provider2 = create_auth_provider(name="api_key")
-        auth_service = AuthService[int](
+        auth_service = AuthService(
             get_user_service=mock_user_service_dependency,
             providers=[provider1, provider2],
         )
@@ -664,10 +665,7 @@ class TestAuthServiceGetDependencySignature:
         assert sig.parameters["request"].annotation is Request
         assert sig.parameters["token_jwt"].annotation == str | None
         assert sig.parameters["token_api_key"].annotation == str | None
-        assert (
-            str(sig.parameters["user_service"].annotation)
-            == "app.domains.users.services.UserService[ID]"
-        )
+        assert sig.parameters["user_service"].annotation is UserService
         assert sig.return_annotation is User
 
     def test_validates_depends_wrapper(
@@ -677,7 +675,7 @@ class TestAuthServiceGetDependencySignature:
     ) -> None:
         """Test Depends correctly wraps security schemes and callables."""
         provider = create_auth_provider(name="jwt")
-        auth_service = AuthService[int](
+        auth_service = AuthService(
             get_user_service=mock_user_service_dependency,
             providers=[provider],
         )

@@ -14,9 +14,11 @@ from .exceptions import (
     APIKeyLimitExceededError,
     APIKeyNotFoundError,
     InvalidAPIKeyError,
+    InvalidAPIKeyIDError,
 )
-from .models import APIKey
+from .models import APIKey, APIKeyID, parse_api_key_id
 from .provider import APIKeyProvider
+from .repositories import APIKeyRepository
 from .schemas import (
     APIKeyCreate,
     APIKeyCreateResponse,
@@ -28,8 +30,12 @@ from .services import APIKeyService
 __all__: list[str] = [
     # Provider
     "APIKeyProvider",
-    # Model
+    # Model and Types
     "APIKey",
+    "APIKeyID",
+    "parse_api_key_id",
+    # Repository
+    "APIKeyRepository",
     # Service
     "APIKeyService",
     # Security
@@ -46,4 +52,5 @@ __all__: list[str] = [
     "APIKeyLimitExceededError",
     "APIKeyExpiredError",
     "InvalidAPIKeyError",
+    "InvalidAPIKeyIDError",
 ]

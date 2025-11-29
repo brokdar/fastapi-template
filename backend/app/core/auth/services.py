@@ -4,7 +4,6 @@ from collections.abc import Awaitable, Callable, Sequence
 from functools import cached_property
 from inspect import Parameter, Signature
 from typing import Any, cast
-from uuid import UUID
 
 import structlog
 from fastapi import Depends, FastAPI, Request
@@ -18,10 +17,10 @@ from app.domains.users.services import UserService
 
 logger = structlog.get_logger("auth")
 
-type UserServiceDependency[ID: (int, UUID)] = Callable[..., UserService[ID]]
+type UserServiceDependency = Callable[..., UserService]
 
 
-class AuthService[ID: (int, UUID)]:
+class AuthService:
     """Manages authentication for a FastAPI application.
 
     Coordinates multiple authentication providers and provides FastAPI
@@ -32,14 +31,12 @@ class AuthService[ID: (int, UUID)]:
 
     Uses the dependency callable pattern: stores a callable for user repository
     which FastAPI resolves per-request, ensuring fresh database sessions.
-
-    Generic over user ID type (int or UUID) to support different database schemas.
     """
 
     def __init__(
         self,
-        get_user_service: UserServiceDependency[ID],
-        providers: Sequence[AuthProvider[ID]],
+        get_user_service: UserServiceDependency,
+        providers: Sequence[AuthProvider],
         provider_dependencies: dict[str, Callable[..., Any]] | None = None,
     ) -> None:
         """Initialize AuthService with dependency callable and providers.
@@ -50,8 +47,8 @@ class AuthService[ID: (int, UUID)]:
             provider_dependencies: Optional dict of named dependencies to inject
                 into request.state for provider use.
         """
-        self.get_user_service: UserServiceDependency[ID] = get_user_service
-        self._providers: Sequence[AuthProvider[ID]] = providers
+        self.get_user_service: UserServiceDependency = get_user_service
+        self._providers: Sequence[AuthProvider] = providers
         self._provider_dependencies: dict[str, Callable[..., Any]] = (
             provider_dependencies or {}
         )
@@ -111,7 +108,7 @@ class AuthService[ID: (int, UUID)]:
                 name="user_service",
                 kind=Parameter.POSITIONAL_OR_KEYWORD,
                 default=Depends(self.get_user_service),
-                annotation=UserService[ID],
+                annotation=UserService,
             )
         )
 
@@ -128,9 +125,7 @@ class AuthService[ID: (int, UUID)]:
 
         return Signature(parameters, return_annotation=User)
 
-    async def _authenticate(
-        self, request: Request, user_service: UserService[ID]
-    ) -> User:
+    async def _authenticate(self, request: Request, user_service: UserService) -> User:
         """Authenticate request using registered providers.
 
         Tries each provider in registration order. First provider that can
@@ -189,7 +184,7 @@ class AuthService[ID: (int, UUID)]:
         @typed_signature(signature)
         async def dependency(
             request: Request,
-            user_service: UserService[ID],
+            user_service: UserService,
             **kwargs: Any,
         ) -> User:
             # Inject provider dependencies into request.state

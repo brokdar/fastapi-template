@@ -6,9 +6,9 @@ UserService to provide concrete parse_id implementations resolved via Python's
 Method Resolution Order (MRO).
 
 Example:
-    >>> class IntUserService(IntIDMixin, UserService[int]):
+    >>> class UserService(IntIDMixin, UserService[int]):
     ...     pass
-    >>> service = IntUserService(repository, password_service)
+    >>> service = UserService(repository, password_service)
     >>> user_id = service.parse_id("123")  # Returns: 123 (int)
 """
 
@@ -28,7 +28,7 @@ class IntIDMixin:
     ensure Python's MRO resolves parse_id to this implementation.
 
     Example:
-        >>> class IntUserService(IntIDMixin, UserService[int]):
+        >>> class UserService(IntIDMixin, UserService[int]):
         ...     pass
 
     Validation rules:

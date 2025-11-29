@@ -2,8 +2,13 @@ from uuid import UUID
 
 from sqlmodel import Field, SQLModel
 
+# Type alias for all supported primary key types.
+# Use for type annotations and as generic bounds.
+# Extend this union when adding support for new ID types (e.g., str).
+type IDType = int | UUID
 
-class BaseModel[T: (int, UUID)](SQLModel):
+
+class BaseModel[T: IDType](SQLModel):
     """Generic base model with configurable ID type.
 
     The `id` field is optional to support model instantiation before database

@@ -16,7 +16,7 @@ from app.db.session import get_session
 from app.dependencies import auth_service, get_user_repository, password_service
 from app.domains.users.models import User, UserRole
 from app.domains.users.schemas import UserCreate
-from app.domains.users.services import IntUserService
+from app.domains.users.services import UserService
 from app.main import app
 from tests.integration import IntegrationSettings
 
@@ -114,7 +114,7 @@ async def ensure_test_users(
     and retrieved here. The normal user is created for testing purposes.
     """
     repository = get_user_repository(test_session)
-    user_service = IntUserService(repository, password_service)
+    user_service = UserService(repository, password_service)
 
     normal_user = await repository.get_by_mail(normal_user_data["email"])
     if not normal_user:

@@ -147,14 +147,14 @@ class TestGetUserEndpoint:
         assert response.status_code == status.HTTP_404_NOT_FOUND
         mock_user_service.get_by_id.assert_called_once_with(999)
 
-    def test_returns_422_for_invalid_user_id(
+    def test_returns_400_for_invalid_user_id(
         self,
         authenticated_client: TestClient,
         api_prefix: str,
     ) -> None:
         """Test validation error for invalid user ID format."""
         response = authenticated_client.get(f"{api_prefix}/users/invalid")
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
 
 
 class TestCreateUserEndpoint:

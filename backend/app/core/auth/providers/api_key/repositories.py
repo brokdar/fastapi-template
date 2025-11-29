@@ -12,11 +12,12 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.base.repositories.base import BaseRepository
 from app.core.base.repositories.exceptions import handle_repository_errors
+from app.domains.users.models import UserID
 
-from .models import APIKey
+from .models import APIKey, APIKeyID
 
 
-class APIKeyRepository(BaseRepository[APIKey, int]):
+class APIKeyRepository(BaseRepository[APIKey, APIKeyID]):
     """Repository for API key data access operations."""
 
     def __init__(self, session: AsyncSession) -> None:
@@ -29,21 +30,42 @@ class APIKeyRepository(BaseRepository[APIKey, int]):
 
     @handle_repository_errors()
     async def get_by_prefix(self, prefix: str) -> APIKey | None:
-        """Find an API key by its prefix for efficient lookup."""
+        """Find an API key by its prefix for efficient lookup.
+
+        Args:
+            prefix: The key prefix to search for.
+
+        Returns:
+            The APIKey if found, None otherwise.
+        """
         statement = select(APIKey).where(APIKey.key_prefix == prefix)
         result = await self._session.exec(statement)
         return result.first()
 
     @handle_repository_errors()
-    async def get_by_user_id(self, user_id: int) -> list[APIKey]:
-        """Get all API keys for a specific user."""
+    async def get_by_user_id(self, user_id: UserID) -> list[APIKey]:
+        """Get all API keys for a specific user.
+
+        Args:
+            user_id: The user's ID to filter by.
+
+        Returns:
+            List of API keys belonging to the user.
+        """
         statement = select(APIKey).where(APIKey.user_id == user_id)
         result = await self._session.exec(statement)
         return list(result.all())
 
     @handle_repository_errors()
-    async def count_by_user(self, user_id: int) -> int:
-        """Count API keys for a user (for max limit enforcement)."""
+    async def count_by_user(self, user_id: UserID) -> int:
+        """Count API keys for a user (for max limit enforcement).
+
+        Args:
+            user_id: The user's ID to count keys for.
+
+        Returns:
+            Number of API keys the user has.
+        """
         statement = (
             select(func.count()).select_from(APIKey).where(APIKey.user_id == user_id)
         )
@@ -51,8 +73,12 @@ class APIKeyRepository(BaseRepository[APIKey, int]):
         return result.one()
 
     @handle_repository_errors()
-    async def update_last_used(self, key_id: int) -> None:
-        """Update only the last_used_at timestamp (efficient partial update)."""
+    async def update_last_used(self, key_id: APIKeyID) -> None:
+        """Update only the last_used_at timestamp (efficient partial update).
+
+        Args:
+            key_id: The API key's ID to update.
+        """
         statement = (
             update(APIKey)
             .where(col(APIKey.id) == key_id)
