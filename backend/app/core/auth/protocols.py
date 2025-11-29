@@ -52,7 +52,7 @@ class AuthenticationUserService(Protocol):
             Typed UserID instance.
 
         Raises:
-            ValueError: If ID format is invalid.
+            InvalidUserIDError: If ID format is invalid.
         """
         ...
 
