@@ -5,7 +5,7 @@ from collections.abc import Callable
 import structlog
 from fastapi import APIRouter, Depends, Path, Security, status
 
-from app.dependencies import auth_service
+from app.dependencies import get_auth_service
 from app.domains.users.models import User, UserRole, parse_user_id
 
 from .models import parse_api_key_id
@@ -31,6 +31,9 @@ def create_api_key_router(
     Returns:
         APIRouter containing API key management endpoints.
     """
+    # Get auth_service - called at router creation time, after setup_authentication()
+    # has initialized auth_service
+    auth_service = get_auth_service()
     router = APIRouter(prefix="/api-keys", tags=["api-keys"])
 
     @router.get(

@@ -13,7 +13,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.auth.providers.jwt.schemas import TokenResponse
 from app.db.session import get_session
-from app.dependencies import auth_service, get_user_repository, password_service
+from app.dependencies import get_auth_service, get_user_repository, password_service
 from app.domains.users.models import User, UserRole
 from app.domains.users.schemas import UserCreate
 from app.domains.users.services import UserService
@@ -226,6 +226,7 @@ async def mock_authenticated_client(
     async def _mock_require_user() -> User:
         return normal_user
 
+    auth_service = get_auth_service()
     app.dependency_overrides[auth_service.require_user] = _mock_require_user
 
     async with httpx.AsyncClient(

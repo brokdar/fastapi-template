@@ -5,7 +5,9 @@ from fastapi.concurrency import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.routing import APIRoute
 
+from app import dependencies
 from app.config import get_settings
+from app.core.auth.setup import setup_authentication
 from app.core.exceptions.handlers import setup_exception_handlers
 from app.core.logging.config import configure_logging
 from app.routes import setup_routes
@@ -51,7 +53,17 @@ if settings.cors_origins:
         allow_headers=["*"],
     )
 
-setup_routes(app)
+# Setup authentication - creates providers based on feature flags
+# and populates dependencies.auth_service for backward compatibility
+auth_result = setup_authentication(
+    app=app,
+    settings=settings,
+    get_user_service=dependencies.get_user_service,
+    get_api_key_service=dependencies.get_api_key_service,
+)
+
+# Setup routes - user routes only included if auth is enabled
+setup_routes(app, auth_enabled=auth_result is not None)
 
 if __name__ == "__main__":
     import uvicorn

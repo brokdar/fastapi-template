@@ -1,21 +1,58 @@
-from typing import Annotated
+"""Dependency injection configuration.
+
+This module defines the dependency factories for services and repositories.
+Authentication providers are now configured via setup_authentication() in main.py.
+
+The auth_service variable is populated by setup_authentication() at app startup.
+Endpoints can still use:
+    from app.dependencies import auth_service
+    user: User = Depends(auth_service.require_user)
+"""
+
+from typing import TYPE_CHECKING, Annotated
 
 from fastapi import Depends
 
 from app.config import get_settings
-from app.core.auth.providers.api_key.provider import APIKeyProvider
 from app.core.auth.providers.api_key.repositories import APIKeyRepository
 from app.core.auth.providers.api_key.services import APIKeyService
-from app.core.auth.providers.jwt.provider import JWTAuthProvider
-from app.core.auth.services import AuthService
 from app.core.security.hasher import default_api_key_service
 from app.core.security.password import default_password_service
 from app.db.session import SessionDependency
 from app.domains.users.repositories import UserRepository
 from app.domains.users.services import UserService
 
+if TYPE_CHECKING:
+    from app.core.auth.services import AuthService
+
 password_service = default_password_service
 settings = get_settings()
+
+# Auth service - populated by setup_authentication() at app startup
+# This allows existing code to continue using:
+#   from app.dependencies import auth_service
+#   user: User = Depends(auth_service.require_user)
+auth_service: "AuthService | None" = None
+
+
+def get_auth_service() -> "AuthService":
+    """Get the auth service, raising if not initialized.
+
+    This function provides proper type narrowing for mypy and should be used
+    in contexts where auth_service must be available (e.g., endpoint definitions).
+
+    Returns:
+        The initialized AuthService instance.
+
+    Raises:
+        RuntimeError: If auth_service has not been initialized.
+    """
+    if auth_service is None:
+        raise RuntimeError(
+            "auth_service not initialized. Ensure setup_authentication() "
+            "has been called before accessing auth_service."
+        )
+    return auth_service
 
 
 def get_user_repository(session: SessionDependency) -> UserRepository:
@@ -78,23 +115,6 @@ def get_api_key_service(
     )
 
 
-jwt_provider: JWTAuthProvider = JWTAuthProvider(
-    secret_key=settings.auth.jwt.secret_key.get_secret_value(),
-    algorithm=settings.auth.jwt.algorithm,
-    access_token_expire_minutes=settings.auth.jwt.access_token_expire_minutes,
-    refresh_token_expire_days=settings.auth.jwt.refresh_token_expire_days,
-)
-
-api_key_provider: APIKeyProvider = APIKeyProvider(
-    get_api_key_service=get_api_key_service,
-    header_name=settings.auth.api_key.header_name,
-)
-
-auth_service: AuthService = AuthService(
-    get_user_service=get_user_service,
-    providers=[api_key_provider, jwt_provider],  # API key first, JWT fallback
-    provider_dependencies={"api_key_service": get_api_key_service},
-)
-
+# Type aliases for dependency injection
 UserServiceDependency = Annotated[UserService, Depends(get_user_service)]
 APIKeyServiceDependency = Annotated[APIKeyService, Depends(get_api_key_service)]

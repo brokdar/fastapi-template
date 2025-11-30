@@ -16,10 +16,14 @@ from app.core.exceptions.schemas import (
     ValidationErrorResponse,
 )
 from app.core.pagination import Page, PaginationDependency
-from app.dependencies import UserServiceDependency, auth_service
+from app.dependencies import UserServiceDependency, get_auth_service
 from app.domains.users.models import User, UserRole, parse_user_id
 
 from .schemas import UserCreate, UserResponse, UserUpdate
+
+# Get auth_service - this module is only imported after setup_authentication()
+# completes, so auth_service is guaranteed to be initialized
+auth_service = get_auth_service()
 
 router = APIRouter(prefix="/users", tags=["users"])
 
