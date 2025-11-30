@@ -4,16 +4,18 @@ This module provides a factory that creates JWTAuthProvider instances
 based on application settings and feature flags.
 """
 
+from __future__ import annotations
+
 from typing import TYPE_CHECKING, Any
 
 from app.core.auth.providers.registry import ProviderRegistry
 
 if TYPE_CHECKING:
     from app.config import Settings
-    from app.core.auth.providers.jwt.provider import JWTAuthProvider
+    from app.core.auth.providers.base import AuthProvider
 
 
-@ProviderRegistry.register("jwt", priority=100)
+@ProviderRegistry.register("jwt")
 class JWTProviderFactory:
     """Factory for creating JWT authentication providers.
 
@@ -22,9 +24,10 @@ class JWTProviderFactory:
     """
 
     name = "jwt"
+    priority = 100
 
     @staticmethod
-    def create(settings: "Settings", **deps: Any) -> "JWTAuthProvider | None":
+    def create(settings: Settings, **deps: Any) -> AuthProvider | None:
         """Create JWT provider if enabled in settings.
 
         Args:
@@ -37,7 +40,6 @@ class JWTProviderFactory:
         if not settings.features.auth.jwt_enabled:
             return None
 
-        # Import here to avoid circular imports
         from app.core.auth.providers.jwt.provider import JWTAuthProvider
 
         return JWTAuthProvider(

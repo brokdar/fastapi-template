@@ -22,8 +22,10 @@ Example:
     ...         return OAuth2Provider(...)
 """
 
+from __future__ import annotations
+
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any, ClassVar, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 if TYPE_CHECKING:
     from app.config import Settings
@@ -43,10 +45,10 @@ class ProviderFactory(Protocol):
     """
 
     name: str
-    priority: ClassVar[int]
+    priority: int
 
     @staticmethod
-    def create(settings: "Settings", **dependencies: Any) -> "AuthProvider | None":
+    def create(settings: Settings, **dependencies: Any) -> AuthProvider | None:
         """Create a provider instance if enabled.
 
         Args:
@@ -87,14 +89,15 @@ class ProviderRegistry:
         cls,
         name: str,
         *,
-        priority: int = 100,
+        priority: int | None = None,
     ) -> Callable[[type[ProviderFactory]], type[ProviderFactory]]:
         """Decorator to register a provider factory.
 
         Args:
             name: Unique name for the provider.
-            priority: Lower numbers are tried first during authentication.
-                Default is 100. API key is typically 50, JWT is 100.
+            priority: Optional override for the factory's priority.
+                If not provided, uses the factory's class-level priority.
+                Lower numbers are tried first during authentication.
 
         Returns:
             Decorator function that registers the factory.
@@ -106,7 +109,8 @@ class ProviderRegistry:
         def decorator(factory: type[ProviderFactory]) -> type[ProviderFactory]:
             if name in cls._factories:
                 raise ValueError(f"Provider '{name}' is already registered")
-            factory.priority = priority
+            if priority is not None:
+                factory.priority = priority
             cls._factories[name] = factory
             cls._provider_order = sorted(
                 [*cls._provider_order, name],
@@ -119,9 +123,9 @@ class ProviderRegistry:
     @classmethod
     def get_enabled_providers(
         cls,
-        settings: "Settings",
+        settings: Settings,
         **dependencies: Any,
-    ) -> list["AuthProvider"]:
+    ) -> list[AuthProvider]:
         """Create all enabled providers based on settings.
 
         Iterates through registered factories in priority order and creates

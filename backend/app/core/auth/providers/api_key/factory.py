@@ -4,16 +4,18 @@ This module provides a factory that creates APIKeyProvider instances
 based on application settings and feature flags.
 """
 
+from __future__ import annotations
+
 from typing import TYPE_CHECKING, Any
 
 from app.core.auth.providers.registry import ProviderRegistry
 
 if TYPE_CHECKING:
     from app.config import Settings
-    from app.core.auth.providers.api_key.provider import APIKeyProvider
+    from app.core.auth.providers.base import AuthProvider
 
 
-@ProviderRegistry.register("api_key", priority=50)
+@ProviderRegistry.register("api_key")
 class APIKeyProviderFactory:
     """Factory for creating API Key authentication providers.
 
@@ -22,9 +24,10 @@ class APIKeyProviderFactory:
     """
 
     name = "api_key"
+    priority = 50
 
     @staticmethod
-    def create(settings: "Settings", **deps: Any) -> "APIKeyProvider | None":
+    def create(settings: Settings, **deps: Any) -> AuthProvider | None:
         """Create API Key provider if enabled in settings.
 
         Args:
@@ -48,7 +51,6 @@ class APIKeyProviderFactory:
                 "Pass it to setup_authentication()."
             )
 
-        # Import here to avoid circular imports
         from app.core.auth.providers.api_key.provider import APIKeyProvider
 
         return APIKeyProvider(

@@ -1,7 +1,7 @@
 """Test suite for ProviderRegistry."""
 
 from collections.abc import Generator
-from typing import Any, ClassVar
+from typing import Any
 from unittest.mock import Mock
 
 import pytest
@@ -38,8 +38,8 @@ def create_factory(
     provider = return_value
 
     class TestFactory:
-        name: str = factory_name
-        priority: ClassVar[int] = 100
+        name = factory_name
+        priority = 100
 
         @staticmethod
         def create(settings: Settings, **dependencies: Any) -> AuthProvider | None:
@@ -143,8 +143,8 @@ class TestProviderRegistryGetEnabledProviders:
         create_mock = Mock(return_value=None)
 
         class FactoryWithMock:
-            name: str = "dep_test"
-            priority: ClassVar[int] = 100
+            name = "dep_test"
+            priority = 100
             create = staticmethod(create_mock)
 
         ProviderRegistry.register("dep_test")(FactoryWithMock)  # type: ignore[arg-type]
@@ -181,7 +181,7 @@ class TestProviderRegistryGetEnabledProviders:
         mock_create = Mock(return_value=return_value)
 
         class MockFactory:
-            priority: ClassVar[int] = 100
+            priority = 100
             create = staticmethod(mock_create)
 
         MockFactory.name = name  # type: ignore[attr-defined]

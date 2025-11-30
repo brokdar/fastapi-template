@@ -14,6 +14,8 @@ Example:
     >>> setup_authentication(app, dependencies.auth_service)
 """
 
+from __future__ import annotations
+
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
@@ -32,9 +34,9 @@ logger = structlog.get_logger("auth.setup")
 
 
 def create_auth_service(
-    settings: "Settings",
-    get_user_service: Callable[..., "UserService"],
-    get_api_key_service: Callable[..., "APIKeyService"] | None = None,
+    settings: Settings,
+    get_user_service: Callable[..., UserService],
+    get_api_key_service: Callable[..., APIKeyService] | None = None,
 ) -> AuthService:
     """Create AuthService instance based on settings.
 
