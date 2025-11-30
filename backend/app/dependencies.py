@@ -1,58 +1,26 @@
 """Dependency injection configuration.
 
-This module defines the dependency factories for services and repositories.
-Authentication providers are now configured via setup_authentication() in main.py.
-
-The auth_service variable is populated by setup_authentication() at app startup.
-Endpoints can still use:
-    from app.dependencies import auth_service
-    user: User = Depends(auth_service.require_user)
+This module defines the dependency factories for services and repositories,
+including the auth_service instance created at module level.
 """
 
-from typing import TYPE_CHECKING, Annotated
+from typing import Annotated
 
 from fastapi import Depends
 
 from app.config import get_settings
 from app.core.auth.providers.api_key.repositories import APIKeyRepository
 from app.core.auth.providers.api_key.services import APIKeyService
+from app.core.auth.services import AuthService
+from app.core.auth.setup import create_auth_service
 from app.core.security.hasher import default_api_key_service
 from app.core.security.password import default_password_service
 from app.db.session import SessionDependency
 from app.domains.users.repositories import UserRepository
 from app.domains.users.services import UserService
 
-if TYPE_CHECKING:
-    from app.core.auth.services import AuthService
-
 password_service = default_password_service
 settings = get_settings()
-
-# Auth service - populated by setup_authentication() at app startup
-# This allows existing code to continue using:
-#   from app.dependencies import auth_service
-#   user: User = Depends(auth_service.require_user)
-auth_service: "AuthService | None" = None
-
-
-def get_auth_service() -> "AuthService":
-    """Get the auth service, raising if not initialized.
-
-    This function provides proper type narrowing for mypy and should be used
-    in contexts where auth_service must be available (e.g., endpoint definitions).
-
-    Returns:
-        The initialized AuthService instance.
-
-    Raises:
-        RuntimeError: If auth_service has not been initialized.
-    """
-    if auth_service is None:
-        raise RuntimeError(
-            "auth_service not initialized. Ensure setup_authentication() "
-            "has been called before accessing auth_service."
-        )
-    return auth_service
 
 
 def get_user_repository(session: SessionDependency) -> UserRepository:
@@ -118,3 +86,10 @@ def get_api_key_service(
 # Type aliases for dependency injection
 UserServiceDependency = Annotated[UserService, Depends(get_user_service)]
 APIKeyServiceDependency = Annotated[APIKeyService, Depends(get_api_key_service)]
+
+# Create auth service at module level (Null Object pattern: always AuthService, may have no providers)
+auth_service: AuthService = create_auth_service(
+    settings=settings,
+    get_user_service=get_user_service,
+    get_api_key_service=get_api_key_service,
+)

@@ -198,6 +198,15 @@ class AuthService:
 
         return dependency
 
+    @property
+    def has_providers(self) -> bool:
+        """Check if any authentication providers are configured.
+
+        Returns:
+            True if at least one provider is registered, False otherwise.
+        """
+        return bool(self._providers)
+
     def require_roles(self, *roles: UserRole) -> Callable[..., Awaitable[User]]:
         """FastAPI dependency factory for role-based access control.
 

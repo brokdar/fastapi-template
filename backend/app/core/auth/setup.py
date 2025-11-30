@@ -1,23 +1,20 @@
 """Authentication setup module.
 
-This module provides the main entry point for configuring authentication
-in a FastAPI application. It replaces manual provider wiring with a
-single function call.
+This module provides functions for creating and configuring authentication
+in a FastAPI application.
 
 Example:
-    >>> from app.core.auth.setup import setup_authentication
+    >>> from app.core.auth.setup import create_auth_service, setup_authentication
     >>> from app import dependencies
     >>>
-    >>> auth_result = setup_authentication(
-    ...     app=app,
-    ...     settings=settings,
-    ...     get_user_service=dependencies.get_user_service,
-    ...     get_api_key_service=dependencies.get_api_key_service,
-    ... )
+    >>> # In dependencies.py - create the service
+    >>> auth_service = create_auth_service(settings, get_user_service, get_api_key_service)
+    >>>
+    >>> # In main.py - setup routes
+    >>> setup_authentication(app, dependencies.auth_service)
 """
 
 from collections.abc import Callable
-from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 import structlog
@@ -29,87 +26,39 @@ from app.core.auth.services import AuthService
 if TYPE_CHECKING:
     from app.config import Settings
     from app.core.auth.providers.api_key.services import APIKeyService
-    from app.core.auth.providers.base import AuthProvider
     from app.domains.users.services import UserService
 
 logger = structlog.get_logger("auth.setup")
 
 
-@dataclass
-class AuthenticationResult:
-    """Result of authentication setup.
-
-    Contains references to the created auth service and providers for
-    dependency injection and testing.
-
-    Attributes:
-        auth_service: The configured AuthService instance.
-        providers: List of enabled provider instances.
-        enabled_provider_names: Names of enabled providers for logging.
-    """
-
-    auth_service: AuthService
-    providers: list["AuthProvider"] = field(default_factory=list)
-    enabled_provider_names: list[str] = field(default_factory=list)
-
-
-def setup_authentication(
-    app: FastAPI,
+def create_auth_service(
     settings: "Settings",
     get_user_service: Callable[..., "UserService"],
     get_api_key_service: Callable[..., "APIKeyService"] | None = None,
-) -> AuthenticationResult | None:
-    """Initialize authentication system based on settings.
-
-    This is the main entry point for authentication configuration. It:
-    1. Checks feature flags to determine if auth should be enabled
-    2. Creates enabled providers via the ProviderRegistry
-    3. Creates and configures the AuthService
-    4. Registers authentication routes on the app
-    5. Populates dependencies.auth_service for backward compatibility
+) -> AuthService:
+    """Create AuthService instance based on settings.
 
     Args:
-        app: FastAPI application instance.
         settings: Application settings containing feature flags and auth config.
         get_user_service: Dependency factory that returns UserService.
         get_api_key_service: Dependency factory for APIKeyService (required if
             API key auth is enabled).
 
     Returns:
-        AuthenticationResult if auth is enabled, None if disabled.
+        Configured AuthService with providers if auth is enabled,
+        or AuthService with no providers if disabled (Null Object pattern).
 
     Raises:
-        ValueError: If auth is enabled but no providers are configured,
-            or if API key auth is enabled but get_api_key_service is not provided.
-
-    Example:
-        >>> # Basic setup with all features enabled (default)
-        >>> auth_result = setup_authentication(
-        ...     app=app,
-        ...     settings=settings,
-        ...     get_user_service=dependencies.get_user_service,
-        ...     get_api_key_service=dependencies.get_api_key_service,
-        ... )
-        >>>
-        >>> # JWT-only setup (disable API key in settings)
-        >>> # Set FEATURES__AUTH__API_KEY_ENABLED=false in environment
-        >>> auth_result = setup_authentication(
-        ...     app=app,
-        ...     settings=settings,
-        ...     get_user_service=dependencies.get_user_service,
-        ... )
+        ValueError: If auth is enabled but no providers are configured.
     """
-    # Check master auth switch
     if not settings.features.auth.enabled:
         logger.info("auth_disabled", reason="FEATURES__AUTH__ENABLED=false")
-        return None
+        return AuthService(get_user_service=get_user_service, providers=[])
 
-    # Build dependencies dict for provider factories
     factory_deps: dict[str, Any] = {}
     if get_api_key_service is not None:
         factory_deps["get_api_key_service"] = get_api_key_service
 
-    # Create enabled providers via registry
     providers = ProviderRegistry.get_enabled_providers(settings, **factory_deps)
 
     if not providers:
@@ -127,26 +76,40 @@ def setup_authentication(
     if get_api_key_service is not None and settings.features.auth.api_key_enabled:
         provider_dependencies["api_key_service"] = get_api_key_service
 
-    # Create AuthService
-    auth_service = AuthService(
+    return AuthService(
         get_user_service=get_user_service,
         providers=providers,
         provider_dependencies=provider_dependencies,
     )
 
-    # Populate dependencies.auth_service BEFORE registering routes
-    # This is critical because route modules import auth_service from dependencies
-    # and use it in Security() decorators
-    from app import dependencies
 
-    dependencies.auth_service = auth_service
+def setup_authentication(
+    app: FastAPI,
+    auth_service: AuthService,
+    *,
+    prefix: str = "",
+) -> None:
+    """Set up authentication for the application.
 
-    # Register authentication routes (after auth_service is available in dependencies)
+    Registers all authentication-related routes:
+    - Auth provider routes (login, token refresh, api-keys)
+    - User management routes (CRUD operations)
+
+    If auth_service has no providers (auth disabled), does nothing.
+
+    Args:
+        app: FastAPI application instance.
+        auth_service: The AuthService instance.
+        prefix: Optional prefix for user management routes.
+    """
     auth_service.register_routes(app)
-    logger.info("auth_routes_registered")
 
-    return AuthenticationResult(
-        auth_service=auth_service,
-        providers=providers,
-        enabled_provider_names=enabled_names,
-    )
+    if not auth_service.has_providers:
+        logger.info("auth_setup_skipped", reason="no providers configured")
+        return
+
+    from app.domains.users.endpoints import router as users_router
+
+    app.include_router(users_router, prefix=prefix)
+
+    logger.info("auth_setup_complete")

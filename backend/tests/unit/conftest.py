@@ -9,12 +9,9 @@ from fastapi.testclient import TestClient
 from pytest_mock import MockerFixture
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-# Import module instead of value so we get the updated auth_service
 from app import dependencies
 from app.config import get_settings
 from app.domains.users.models import User, UserRole
-
-# Import app first to ensure setup_authentication runs and populates auth_service
 from app.main import app
 
 

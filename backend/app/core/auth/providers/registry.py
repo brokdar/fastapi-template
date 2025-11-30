@@ -23,7 +23,7 @@ Example:
 """
 
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Any, ClassVar, Protocol
 
 if TYPE_CHECKING:
     from app.config import Settings
@@ -39,9 +39,11 @@ class ProviderFactory(Protocol):
 
     Attributes:
         name: Unique identifier for the provider.
+        priority: Authentication order priority (lower = tried first).
     """
 
     name: str
+    priority: ClassVar[int]
 
     @staticmethod
     def create(settings: "Settings", **dependencies: Any) -> "AuthProvider | None":
@@ -104,14 +106,12 @@ class ProviderRegistry:
         def decorator(factory: type[ProviderFactory]) -> type[ProviderFactory]:
             if name in cls._factories:
                 raise ValueError(f"Provider '{name}' is already registered")
+            factory.priority = priority
             cls._factories[name] = factory
-            # Insert in sorted order by priority
             cls._provider_order = sorted(
                 [*cls._provider_order, name],
-                key=lambda n: getattr(cls._factories[n], "priority", priority),
+                key=lambda n: cls._factories[n].priority,
             )
-            # Store priority on the factory for future reference
-            factory.priority = priority  # type: ignore[attr-defined]
             return factory
 
         return decorator
