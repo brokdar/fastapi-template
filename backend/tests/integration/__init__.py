@@ -2,7 +2,12 @@
 
 from pydantic import SecretStr
 
-from app.config import DatabaseSettings, LogSettings, Settings
+from app.config import (
+    DatabaseSettings,
+    LogSettings,
+    Settings,
+)
+from app.core.auth.config import APIKeySettings, AuthSettings
 
 
 class IntegrationSettings(Settings):
@@ -18,4 +23,7 @@ class IntegrationSettings(Settings):
     log: LogSettings = LogSettings(
         level="WARNING",
         disable_colors=True,
+    )
+    auth: AuthSettings = AuthSettings(
+        api_key=APIKeySettings(enabled=True),
     )

@@ -53,8 +53,8 @@ def create_auth_service(
     Raises:
         ValueError: If auth is enabled but no providers are configured.
     """
-    if not settings.features.auth.enabled:
-        logger.info("auth_disabled", reason="FEATURES__AUTH__ENABLED=false")
+    if not settings.auth.enabled:
+        logger.info("auth_disabled", reason="AUTH__ENABLED=false")
         return AuthService(get_user_service=get_user_service, providers=[])
 
     factory_deps: dict[str, Any] = {}
@@ -66,8 +66,8 @@ def create_auth_service(
     if not providers:
         raise ValueError(
             "Authentication is enabled but no providers are configured. "
-            "Enable at least one provider via FEATURES__AUTH__JWT_ENABLED=true "
-            "or FEATURES__AUTH__API_KEY_ENABLED=true"
+            "Enable at least one provider via AUTH__JWT__ENABLED=true "
+            "or AUTH__API_KEY__ENABLED=true"
         )
 
     enabled_names = [p.name for p in providers]
@@ -75,7 +75,7 @@ def create_auth_service(
 
     # Build provider dependencies for request.state injection
     provider_dependencies: dict[str, Callable[..., Any]] = {}
-    if get_api_key_service is not None and settings.features.auth.api_key_enabled:
+    if get_api_key_service is not None and settings.auth.api_key.enabled:
         provider_dependencies["api_key_service"] = get_api_key_service
 
     return AuthService(

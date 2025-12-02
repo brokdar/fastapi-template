@@ -41,7 +41,7 @@ class APIKeyProviderFactory:
         Raises:
             ValueError: If get_api_key_service dependency is missing.
         """
-        if not settings.features.auth.api_key_enabled:
+        if not settings.auth.api_key.enabled:
             return None
 
         get_api_key_service = deps.get("get_api_key_service")

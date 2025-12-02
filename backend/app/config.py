@@ -37,34 +37,6 @@ class SuperUserSettings(BaseModel):
     password: SecretStr = SecretStr("admin")
 
 
-class AuthFeatureSettings(BaseModel):
-    """Authentication feature toggles.
-
-    Controls which authentication features are enabled at runtime.
-    When auth is disabled, no auth routes or user management endpoints are registered.
-    Database tables are always created regardless of these settings.
-    """
-
-    enabled: bool = Field(
-        default=True,
-        description="Master switch for authentication. When False, no auth or user routes registered.",
-    )
-    jwt_enabled: bool = Field(
-        default=True,
-        description="Enable JWT authentication provider.",
-    )
-    api_key_enabled: bool = Field(
-        default=True,
-        description="Enable API Key authentication provider.",
-    )
-
-
-class FeatureSettings(BaseModel):
-    """Application feature toggles."""
-
-    auth: AuthFeatureSettings = Field(default_factory=AuthFeatureSettings)
-
-
 class Settings(BaseSettings):
     """Application configuration settings."""
 
@@ -78,7 +50,6 @@ class Settings(BaseSettings):
     database: DatabaseSettings = Field(default_factory=DatabaseSettings)
     super_user: SuperUserSettings = Field(default_factory=SuperUserSettings)
     auth: AuthSettings = Field(default_factory=AuthSettings)
-    features: FeatureSettings = Field(default_factory=FeatureSettings)
 
     model_config = SettingsConfigDict(
         env_nested_delimiter="__",

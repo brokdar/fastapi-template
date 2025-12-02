@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from app.domains.health.endpoints import router as health_router
 
 
-def setup_routes(app: FastAPI, *, prefix: str = "") -> None:
+def setup_routes(app: FastAPI, prefix: str = "") -> None:
     """Register non-auth domain routers with the FastAPI application.
 
     Auth-related routes (login, users, api-keys) are registered separately

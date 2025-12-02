@@ -37,7 +37,7 @@ class JWTProviderFactory:
         Returns:
             JWTAuthProvider instance if enabled, None if disabled.
         """
-        if not settings.features.auth.jwt_enabled:
+        if not settings.auth.jwt.enabled:
             return None
 
         from app.core.auth.providers.jwt.provider import JWTAuthProvider

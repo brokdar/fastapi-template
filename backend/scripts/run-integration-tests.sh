@@ -12,6 +12,7 @@ export DATABASE__PORT="5432"
 export DATABASE__USER="test_user"
 export DATABASE__PASSWORD="test_password"
 export DATABASE__DB="test_db"
+
 export LOG__LEVEL="WARNING"
 export LOG__DISABLE_COLORS="true"
 
@@ -19,6 +20,10 @@ export AUTH__JWT_SECRET_KEY="test-secret-key-min-32-chars-long-for-security"
 export AUTH__JWT_ALGORITHM="HS256"
 export AUTH__JWT_ACCESS_TOKEN_EXPIRE_MINUTES="15"
 export AUTH__JWT_REFRESH_TOKEN_EXPIRE_DAYS="7"
+
+export AUTH__ENABLED="true"
+export AUTH__JWT__ENABLED="true"
+export AUTH__API_KEY__ENABLED="true"
 
 export SUPER_USER__NAME="testadmin"
 export SUPER_USER__EMAIL="testadmin@example.com"

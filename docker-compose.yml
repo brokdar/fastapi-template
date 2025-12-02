@@ -72,6 +72,9 @@ services:
       - LOG__FILE_PATH=${LOG_FILE_PATH:-}
       - LOG__DISABLE_COLORS=${LOG_DISABLE_COLORS:-false}
       - API_PATH=${API_PATH}
+      - AUTH__ENABLED=${AUTH_ENABLED:-true}
+      - AUTH__JWT__ENABLED=${AUTH_JWT_ENABLED:-true}
+      - AUTH__API_KEY__ENABLED=${AUTH_API_KEY_ENABLED:-false}
     depends_on:
       db:
         condition: service_healthy

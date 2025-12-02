@@ -9,6 +9,10 @@ from pydantic import BaseModel, Field, SecretStr
 class JWTSettings(BaseModel):
     """Configuration settings for JWT authentication provider."""
 
+    enabled: bool = Field(
+        default=True,
+        description="Enable JWT authentication provider.",
+    )
     secret_key: Annotated[SecretStr, Field(min_length=32)] = Field(
         default_factory=lambda: SecretStr(secrets.token_urlsafe(32)),
         description="Secret key for JWT token signing and verification",
@@ -32,6 +36,10 @@ class JWTSettings(BaseModel):
 class APIKeySettings(BaseModel):
     """Configuration settings for API Key authentication provider."""
 
+    enabled: bool = Field(
+        default=False,
+        description="Enable API Key authentication provider.",
+    )
     max_per_user: int = Field(
         default=5,
         ge=1,
@@ -54,15 +62,21 @@ class AuthSettings(BaseModel):
     """Authentication configuration for JWT and API Key providers.
 
     These settings provide convenient defaults and environment variable mapping
-    for JWT and API Key authentication. Providers are configured and enabled in
-    code via dependencies.py, not through configuration.
+    for JWT and API Key authentication, including feature toggles.
 
     Environment variable examples (with AUTH__ prefix from parent):
+        AUTH__ENABLED: Master switch for authentication
+        AUTH__JWT__ENABLED: Enable JWT authentication provider
         AUTH__JWT__SECRET_KEY: JWT signing secret
         AUTH__JWT__ALGORITHM: JWT algorithm (default: HS256)
+        AUTH__API_KEY__ENABLED: Enable API Key authentication provider
         AUTH__API_KEY__MAX_PER_USER: Max API keys per user
     """
 
+    enabled: bool = Field(
+        default=True,
+        description="Master switch for authentication. When False, no auth or user routes registered.",
+    )
     jwt: JWTSettings = Field(
         default_factory=JWTSettings,
         description="JWT authentication provider settings",

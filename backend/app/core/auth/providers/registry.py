@@ -17,7 +17,7 @@ Example:
     ...
     ...     @staticmethod
     ...     def create(settings: Settings, **deps: Any) -> OAuth2Provider | None:
-    ...         if not getattr(settings.features.auth, "oauth2_enabled", False):
+    ...         if not getattr(settings.auth.oauth2, "enabled", False):
     ...             return None
     ...         return OAuth2Provider(...)
 """
