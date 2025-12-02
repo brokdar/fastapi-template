@@ -1,13 +1,18 @@
+"""Dependency injection configuration.
+
+This module defines the dependency factories for services and repositories,
+including the auth_service instance created at module level.
+"""
+
 from typing import Annotated
 
 from fastapi import Depends
 
 from app.config import get_settings
-from app.core.auth.providers.api_key.provider import APIKeyProvider
 from app.core.auth.providers.api_key.repositories import APIKeyRepository
 from app.core.auth.providers.api_key.services import APIKeyService
-from app.core.auth.providers.jwt.provider import JWTAuthProvider
 from app.core.auth.services import AuthService
+from app.core.auth.setup import create_auth_service
 from app.core.security.hasher import default_api_key_service
 from app.core.security.password import default_password_service
 from app.db.session import SessionDependency
@@ -78,23 +83,13 @@ def get_api_key_service(
     )
 
 
-jwt_provider: JWTAuthProvider = JWTAuthProvider(
-    secret_key=settings.auth.jwt.secret_key.get_secret_value(),
-    algorithm=settings.auth.jwt.algorithm,
-    access_token_expire_minutes=settings.auth.jwt.access_token_expire_minutes,
-    refresh_token_expire_days=settings.auth.jwt.refresh_token_expire_days,
-)
-
-api_key_provider: APIKeyProvider = APIKeyProvider(
-    get_api_key_service=get_api_key_service,
-    header_name=settings.auth.api_key.header_name,
-)
-
-auth_service: AuthService = AuthService(
-    get_user_service=get_user_service,
-    providers=[api_key_provider, jwt_provider],  # API key first, JWT fallback
-    provider_dependencies={"api_key_service": get_api_key_service},
-)
-
+# Type aliases for dependency injection
 UserServiceDependency = Annotated[UserService, Depends(get_user_service)]
 APIKeyServiceDependency = Annotated[APIKeyService, Depends(get_api_key_service)]
+
+# Create auth service at module level (Null Object pattern: always AuthService, may have no providers)
+auth_service: AuthService = create_auth_service(
+    settings=settings,
+    get_user_service=get_user_service,
+    get_api_key_service=get_api_key_service,
+)

@@ -5,9 +5,11 @@ from fastapi.concurrency import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.routing import APIRoute
 
+from app import dependencies
 from app.config import get_settings
+from app.core.auth.setup import setup_authentication
 from app.core.exceptions.handlers import setup_exception_handlers
-from app.core.logging.config import configure_logging
+from app.core.logging import RequestLoggingMiddleware, configure_logging
 from app.routes import setup_routes
 
 
@@ -51,6 +53,9 @@ if settings.cors_origins:
         allow_headers=["*"],
     )
 
+app.add_middleware(RequestLoggingMiddleware)
+
+setup_authentication(app, dependencies.auth_service)
 setup_routes(app)
 
 if __name__ == "__main__":

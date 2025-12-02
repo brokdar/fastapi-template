@@ -9,8 +9,8 @@ from fastapi.testclient import TestClient
 from pytest_mock import MockerFixture
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app import dependencies
 from app.config import get_settings
-from app.dependencies import auth_service
 from app.domains.users.models import User, UserRole
 from app.main import app
 
@@ -78,6 +78,9 @@ def admin_user(create_user: Callable[..., User]) -> User:
 @pytest.fixture
 def authenticated_client(admin_user: User, mocker: MockerFixture) -> TestClient:
     """Return a test client with admin authentication."""
+    auth_service = dependencies.auth_service
+    if auth_service is None:
+        raise RuntimeError("auth_service not initialized - check setup_authentication")
 
     async def mock_authenticate(*args: Any, **kwargs: Any) -> User:
         return admin_user

@@ -46,10 +46,10 @@ class Settings(BaseSettings):
     application_name: str = "FastAPI Template"
     cors_origins: list[str] = ["*"]
 
-    log: LogSettings = LogSettings()
-    database: DatabaseSettings = DatabaseSettings()
-    super_user: SuperUserSettings = SuperUserSettings()
-    auth: AuthSettings = AuthSettings()
+    log: LogSettings = Field(default_factory=LogSettings)
+    database: DatabaseSettings = Field(default_factory=DatabaseSettings)
+    super_user: SuperUserSettings = Field(default_factory=SuperUserSettings)
+    auth: AuthSettings = Field(default_factory=AuthSettings)
 
     model_config = SettingsConfigDict(
         env_nested_delimiter="__",

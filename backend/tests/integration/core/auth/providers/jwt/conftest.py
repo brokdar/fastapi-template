@@ -7,13 +7,26 @@ import httpx
 import jwt
 import pytest
 
+from app import dependencies
+from app.core.auth.providers.jwt.provider import JWTAuthProvider
 from app.core.auth.providers.jwt.schemas import TokenResponse
-from app.dependencies import jwt_provider
+
+
+def _get_jwt_provider() -> JWTAuthProvider:
+    """Get JWT provider from auth_service."""
+    auth_service = dependencies.auth_service
+    if auth_service is None:
+        raise RuntimeError("auth_service not initialized")
+    for provider in auth_service._providers:
+        if isinstance(provider, JWTAuthProvider):
+            return provider
+    raise RuntimeError("JWT provider not found in auth_service")
 
 
 @pytest.fixture
 def jwt_settings() -> dict[str, Any]:
     """Provide JWT configuration settings from the running app's provider."""
+    jwt_provider = _get_jwt_provider()
     return {
         "secret_key": jwt_provider.secret_key,
         "algorithm": jwt_provider.algorithm,
