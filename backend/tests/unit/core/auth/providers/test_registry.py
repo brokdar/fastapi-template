@@ -1,14 +1,15 @@
 """Test suite for ProviderRegistry."""
 
-from collections.abc import Generator
-from typing import Any
-from unittest.mock import Mock
+from collections.abc import Callable, Generator
+from dataclasses import dataclass
+from unittest.mock import MagicMock, Mock
 
 import pytest
 
 from app.config import Settings
 from app.core.auth.providers.base import AuthProvider
 from app.core.auth.providers.registry import ProviderFactory, ProviderRegistry
+from app.core.auth.providers.types import ProviderDeps
 
 
 @pytest.fixture(autouse=True)
@@ -33,16 +34,21 @@ def mock_provider() -> Mock:
 def create_factory(
     factory_name: str,
     return_value: AuthProvider | None = None,
+    factory_deps_type: type[ProviderDeps] | None = None,
 ) -> type[ProviderFactory]:
     """Create a test factory class."""
     provider = return_value
+    stored_deps_type = factory_deps_type
 
     class TestFactory:
         name = factory_name
         priority = 100
+        deps_type: type[ProviderDeps] | None = stored_deps_type
 
         @staticmethod
-        def create(settings: Settings, **dependencies: Any) -> AuthProvider | None:
+        def create(
+            settings: Settings, deps: ProviderDeps | None
+        ) -> AuthProvider | None:
             return provider
 
     return TestFactory
@@ -78,6 +84,19 @@ class TestProviderRegistryRegister:
         ProviderRegistry.register("priority_test", priority=50)(factory)
 
         assert factory.priority == 50
+
+    def test_stores_deps_type_on_registration(self) -> None:
+        """Test that deps_type is stored when registering."""
+
+        @dataclass(frozen=True)
+        class TestDeps(ProviderDeps):
+            some_service: Callable[..., object]
+
+        factory = create_factory("deps_test", factory_deps_type=TestDeps)
+
+        ProviderRegistry.register("deps_test", deps_type=TestDeps)(factory)
+
+        assert ProviderRegistry.get_required_deps_types() == {"deps_test": TestDeps}
 
     @pytest.mark.parametrize(
         ("priorities", "expected_order"),
@@ -138,27 +157,38 @@ class TestProviderRegistryGetEnabledProviders:
 
         assert providers == [enabled_provider]
 
-    def test_passes_dependencies_to_factories(self, mock_settings: Mock) -> None:
-        """Test that dependencies are passed to factory create method."""
-        create_mock = Mock(return_value=None)
+    def test_passes_typed_deps_to_factories(self) -> None:
+        """Test that typed dependencies are passed to factory create method."""
+
+        @dataclass(frozen=True)
+        class TestDeps(ProviderDeps):
+            get_service: Callable[..., object]
+
+        received_deps: list[ProviderDeps | None] = []
+        settings = MagicMock()
 
         class FactoryWithMock:
             name = "dep_test"
             priority = 100
-            create = staticmethod(create_mock)
+            deps_type: type[ProviderDeps] | None = TestDeps
 
-        ProviderRegistry.register("dep_test")(FactoryWithMock)  # type: ignore[arg-type]
+            @staticmethod
+            def create(
+                settings: Settings, deps: ProviderDeps | None
+            ) -> AuthProvider | None:
+                received_deps.append(deps)
+                return None
 
+        ProviderRegistry.register("dep_test", deps_type=TestDeps)(FactoryWithMock)
+
+        test_deps = TestDeps(get_service=Mock())
         ProviderRegistry.get_enabled_providers(
-            mock_settings,
-            get_api_key_service=Mock(),
-            other_dep="value",
+            settings,
+            dependencies={"dep_test": test_deps},
         )
 
-        create_mock.assert_called_once()
-        call_kwargs = create_mock.call_args[1]
-        assert "get_api_key_service" in call_kwargs
-        assert call_kwargs["other_dep"] == "value"
+        assert len(received_deps) == 1
+        assert received_deps[0] is test_deps
 
     def test_returns_empty_list_when_no_providers_enabled(
         self,
@@ -178,14 +208,79 @@ class TestProviderRegistryGetEnabledProviders:
         return_value: AuthProvider | None,
     ) -> type[ProviderFactory]:
         """Create factory that returns specified provider."""
-        mock_create = Mock(return_value=return_value)
+        captured_return = return_value
 
         class MockFactory:
             priority = 100
-            create = staticmethod(mock_create)
+            deps_type: type[ProviderDeps] | None = None
+
+            @staticmethod
+            def create(
+                settings: Settings, deps: ProviderDeps | None
+            ) -> AuthProvider | None:
+                return captured_return
 
         MockFactory.name = name  # type: ignore[attr-defined]
         return MockFactory  # type: ignore[return-value]
+
+
+class TestProviderRegistryDependencyTypeValidation:
+    """Test suite for dependency type validation in get_enabled_providers."""
+
+    def test_raises_value_error_when_wrong_deps_type(self) -> None:
+        """Test that validation fails when deps are of wrong type."""
+
+        @dataclass(frozen=True)
+        class TestDeps(ProviderDeps):
+            some_service: Callable[..., object]
+
+        @dataclass(frozen=True)
+        class WrongDeps(ProviderDeps):
+            other_service: Callable[..., object]
+
+        factory = create_factory("test_provider", factory_deps_type=TestDeps)
+        ProviderRegistry.register("test_provider", deps_type=TestDeps)(factory)
+
+        settings = MagicMock()
+        wrong_deps = WrongDeps(other_service=Mock())
+
+        with pytest.raises(ValueError, match="requires TestDeps, got WrongDeps"):
+            ProviderRegistry.get_enabled_providers(
+                settings, {"test_provider": wrong_deps}
+            )
+
+    def test_accepts_correct_deps_type(self) -> None:
+        """Test that validation passes when correct deps type is provided."""
+
+        @dataclass(frozen=True)
+        class TestDeps(ProviderDeps):
+            some_service: Callable[..., object]
+
+        factory = create_factory("test_provider", factory_deps_type=TestDeps)
+        ProviderRegistry.register("test_provider", deps_type=TestDeps)(factory)
+
+        settings = MagicMock()
+        correct_deps = TestDeps(some_service=Mock())
+
+        ProviderRegistry.get_enabled_providers(
+            settings, {"test_provider": correct_deps}
+        )
+
+    def test_ignores_deps_for_unknown_providers(self) -> None:
+        """Test that deps for unregistered providers are ignored."""
+        factory = create_factory("known_provider", factory_deps_type=None)
+        ProviderRegistry.register("known_provider")(factory)
+
+        @dataclass(frozen=True)
+        class UnknownDeps(ProviderDeps):
+            some_service: Callable[..., object]
+
+        settings = MagicMock()
+        unknown_deps = UnknownDeps(some_service=Mock())
+
+        ProviderRegistry.get_enabled_providers(
+            settings, {"unknown_provider": unknown_deps}
+        )
 
 
 class TestProviderRegistryGetFactory:
@@ -205,6 +300,36 @@ class TestProviderRegistryGetFactory:
         result = ProviderRegistry.get_factory("nonexistent")
 
         assert result is None
+
+
+class TestProviderRegistryGetRequiredDepsTypes:
+    """Test suite for ProviderRegistry.get_required_deps_types."""
+
+    def test_returns_deps_types_for_providers_with_deps(self) -> None:
+        """Test that only providers with deps_type are returned."""
+
+        @dataclass(frozen=True)
+        class TestDeps(ProviderDeps):
+            some_service: Callable[..., object]
+
+        factory_with_deps = create_factory("with_deps", factory_deps_type=TestDeps)
+        factory_without_deps = create_factory("without_deps", factory_deps_type=None)
+
+        ProviderRegistry.register("with_deps", deps_type=TestDeps)(factory_with_deps)
+        ProviderRegistry.register("without_deps")(factory_without_deps)
+
+        result = ProviderRegistry.get_required_deps_types()
+
+        assert result == {"with_deps": TestDeps}
+
+    def test_returns_empty_dict_when_no_deps_required(self) -> None:
+        """Test empty dict when no providers require deps."""
+        factory = create_factory("no_deps", factory_deps_type=None)
+        ProviderRegistry.register("no_deps")(factory)
+
+        result = ProviderRegistry.get_required_deps_types()
+
+        assert result == {}
 
 
 class TestProviderRegistryListRegistered:
@@ -240,3 +365,17 @@ class TestProviderRegistryClear:
         assert ProviderRegistry.list_registered() == []
         assert ProviderRegistry.get_factory("test1") is None
         assert ProviderRegistry.get_factory("test2") is None
+
+    def test_clears_deps_types(self) -> None:
+        """Test that clear also removes deps_types."""
+
+        @dataclass(frozen=True)
+        class TestDeps(ProviderDeps):
+            some_service: Callable[..., object]
+
+        factory = create_factory("test", factory_deps_type=TestDeps)
+        ProviderRegistry.register("test", deps_type=TestDeps)(factory)
+
+        ProviderRegistry.clear()
+
+        assert ProviderRegistry.get_required_deps_types() == {}

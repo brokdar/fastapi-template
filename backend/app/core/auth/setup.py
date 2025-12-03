@@ -5,10 +5,12 @@ in a FastAPI application.
 
 Example:
     >>> from app.core.auth.setup import create_auth_service, setup_authentication
+    >>> from app.core.auth.providers.api_key.dependencies import APIKeyDeps
     >>> from app import dependencies
     >>>
-    >>> # In dependencies.py - create the service
-    >>> auth_service = create_auth_service(settings, get_user_service, get_api_key_service)
+    >>> # In dependencies.py - create the service with typed deps
+    >>> provider_deps = {"api_key": APIKeyDeps(get_api_key_service=get_api_key_service)}
+    >>> auth_service = create_auth_service(settings, get_user_service, provider_deps)
     >>>
     >>> # In main.py - setup routes
     >>> setup_authentication(app, dependencies.auth_service)
@@ -27,7 +29,7 @@ from app.core.auth.services import AuthService
 
 if TYPE_CHECKING:
     from app.config import Settings
-    from app.core.auth.providers.api_key.services import APIKeyService
+    from app.core.auth.providers.types import ProviderDeps
     from app.domains.users.services import UserService
 
 logger = structlog.get_logger("auth.setup")
@@ -36,32 +38,31 @@ logger = structlog.get_logger("auth.setup")
 def create_auth_service(
     settings: Settings,
     get_user_service: Callable[..., UserService],
-    get_api_key_service: Callable[..., APIKeyService] | None = None,
+    provider_deps: dict[str, ProviderDeps] | None = None,
 ) -> AuthService:
     """Create AuthService instance based on settings.
 
     Args:
         settings: Application settings containing feature flags and auth config.
         get_user_service: Dependency factory that returns UserService.
-        get_api_key_service: Dependency factory for APIKeyService (required if
-            API key auth is enabled).
+        provider_deps: Dict mapping provider name to its typed dependencies.
+            Example: {"api_key": APIKeyDeps(get_api_key_service=...)}
 
     Returns:
         Configured AuthService with providers if auth is enabled,
         or AuthService with no providers if disabled (Null Object pattern).
 
     Raises:
-        ValueError: If auth is enabled but no providers are configured.
+        ValueError: If auth is enabled but no providers are configured,
+            or if an enabled provider is missing required dependencies.
     """
     if not settings.auth.enabled:
         logger.info("auth_disabled", reason="AUTH__ENABLED=false")
         return AuthService(get_user_service=get_user_service, providers=[])
 
-    factory_deps: dict[str, Any] = {}
-    if get_api_key_service is not None:
-        factory_deps["get_api_key_service"] = get_api_key_service
+    deps = provider_deps or {}
 
-    providers = ProviderRegistry.get_enabled_providers(settings, **factory_deps)
+    providers = ProviderRegistry.get_enabled_providers(settings, deps)
 
     if not providers:
         raise ValueError(
@@ -74,9 +75,15 @@ def create_auth_service(
     logger.info("auth_providers_enabled", providers=enabled_names)
 
     # Build provider dependencies for request.state injection
+    # Extract callables from the dataclasses for enabled providers
     provider_dependencies: dict[str, Callable[..., Any]] = {}
-    if get_api_key_service is not None and settings.auth.api_key.enabled:
-        provider_dependencies["api_key_service"] = get_api_key_service
+    for name, provider_dep in deps.items():
+        if any(p.name == name for p in providers):
+            for field_name in provider_dep.__dataclass_fields__:
+                field_value = getattr(provider_dep, field_name)
+                if callable(field_value):
+                    state_key = field_name.removeprefix("get_")
+                    provider_dependencies[state_key] = field_value
 
     return AuthService(
         get_user_service=get_user_service,

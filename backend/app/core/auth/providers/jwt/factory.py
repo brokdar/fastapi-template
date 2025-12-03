@@ -6,13 +6,14 @@ based on application settings and feature flags.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from app.core.auth.providers.registry import ProviderRegistry
 
 if TYPE_CHECKING:
     from app.config import Settings
     from app.core.auth.providers.base import AuthProvider
+    from app.core.auth.providers.types import ProviderDeps
 
 
 @ProviderRegistry.register("jwt")
@@ -25,14 +26,15 @@ class JWTProviderFactory:
 
     name = "jwt"
     priority = 100
+    deps_type: type[ProviderDeps] | None = None
 
     @staticmethod
-    def create(settings: Settings, **deps: Any) -> AuthProvider | None:
+    def create(settings: Settings, deps: ProviderDeps | None) -> AuthProvider | None:
         """Create JWT provider if enabled in settings.
 
         Args:
             settings: Application settings containing JWT configuration.
-            **deps: Additional dependencies (not used by JWT provider).
+            deps: Not used - JWT provider has no external dependencies.
 
         Returns:
             JWTAuthProvider instance if enabled, None if disabled.
