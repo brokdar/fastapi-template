@@ -3,8 +3,10 @@
 from collections.abc import Callable
 
 import structlog
-from fastapi import APIRouter, Depends, Path, Security, status
+from fastapi import APIRouter, Depends, Path, Request, Security, status
 
+from app.core.auth.providers.api_key.config import APIKeySettings
+from app.core.ratelimit import get_user_identifier, limiter
 from app.dependencies import auth_service
 from app.domains.users.models import User, UserRole, parse_user_id
 
@@ -22,11 +24,13 @@ logger = structlog.get_logger("auth.provider.api_key.router")
 
 def create_api_key_router(
     get_api_key_service: Callable[..., APIKeyService],
+    settings: APIKeySettings,
 ) -> APIRouter:
     """Create API key management router.
 
     Args:
         get_api_key_service: Dependency factory for APIKeyService instances.
+        settings: API Key settings for rate limit configuration.
 
     Returns:
         APIRouter containing API key management endpoints.
@@ -81,12 +85,14 @@ def create_api_key_router(
         summary="Create a new API key",
         description="Create a new API key for the authenticated user. The secret key is only returned once.",
     )
+    @limiter.limit(settings.create_rate_limit, key_func=get_user_identifier)
     async def create_api_key(
+        request: Request,
         data: APIKeyCreate,
         user: User = Security(auth_service.require_user),
         api_key_service: APIKeyService = Depends(get_api_key_service),
     ) -> APIKeyCreateResponse:
-        """Create a new API key for the current user."""
+        """Create a new API key for the current user. Rate limited per user."""
         plaintext_key, api_key = await api_key_service.create_key(
             user_id=user.pk,
             name=data.name,
@@ -125,12 +131,14 @@ def create_api_key_router(
         summary="Delete an API key",
         description="Delete one of your API keys.",
     )
+    @limiter.limit(settings.delete_rate_limit, key_func=get_user_identifier)
     async def delete_api_key(
+        request: Request,
         key_id: str = Path(..., description="API key ID"),
         user: User = Security(auth_service.require_user),
         api_key_service: APIKeyService = Depends(get_api_key_service),
     ) -> None:
-        """Delete an API key owned by the current user."""
+        """Delete an API key owned by the current user. Rate limited per user."""
         parsed_key_id = parse_api_key_id(key_id)
         await api_key_service.delete_key(
             key_id=parsed_key_id,

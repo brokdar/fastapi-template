@@ -10,6 +10,7 @@ from app.config import get_settings
 from app.core.auth.setup import setup_authentication
 from app.core.exceptions.handlers import setup_exception_handlers
 from app.core.logging import RequestLoggingMiddleware, configure_logging
+from app.core.ratelimit import setup_rate_limiter
 from app.routes import setup_routes
 
 
@@ -42,6 +43,7 @@ app = FastAPI(
 )
 
 setup_exception_handlers(app)
+setup_rate_limiter(app)
 
 if settings.cors_origins:
     origins = [origin.strip() for origin in settings.cors_origins]

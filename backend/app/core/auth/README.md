@@ -196,7 +196,7 @@ graph LR
 ```tree
 app/core/auth/
 ├── __init__.py              # Public API exports
-├── config.py                # AuthSettings, JWTSettings, APIKeySettings
+├── config.py                # AuthSettings (assembles provider settings)
 ├── exceptions.py            # Auth-specific exceptions
 ├── protocols.py             # AuthenticationUserService protocol
 ├── services.py              # AuthService orchestrator
@@ -209,12 +209,14 @@ app/core/auth/
     ├── types.py             # ProviderDeps base dataclass
     ├── jwt/
     │   ├── __init__.py      # JWT provider exports
+    │   ├── config.py        # JWTSettings, JWTAlgorithm
     │   ├── factory.py       # JWTProviderFactory (priority: 100)
     │   ├── provider.py      # JWTAuthProvider implementation
     │   ├── router.py        # /auth/jwt/login, /auth/jwt/refresh
     │   └── schemas.py       # TokenResponse, TokenPayload, RefreshTokenRequest
     └── api_key/
         ├── __init__.py      # API Key provider exports
+        ├── config.py        # APIKeySettings
         ├── dependencies.py  # APIKeyDeps dataclass
         ├── exceptions.py    # API key-specific exceptions
         ├── factory.py       # APIKeyProviderFactory (priority: 50)
@@ -230,7 +232,7 @@ app/core/auth/
 
 | Module | Description |
 |--------|-------------|
-| `config.py` | Pydantic settings for JWT and API Key configuration with environment variable mapping |
+| `config.py` | `AuthSettings` that assembles provider settings from `providers/jwt/config.py` and `providers/api_key/config.py` |
 | `exceptions.py` | Domain exceptions: `InvalidTokenError`, `TokenExpiredError`, `InactiveUserError`, `InsufficientPermissionsError` |
 | `protocols.py` | `AuthenticationUserService` protocol for minimal user service interface |
 | `services.py` | `AuthService` that orchestrates providers and generates FastAPI dependencies |
@@ -448,7 +450,11 @@ password: str
 ### Settings Classes
 
 ```python
-from app.core.auth import AuthSettings
+from pydantic import SecretStr
+
+from app.core.auth.config import AuthSettings
+from app.core.auth.providers.jwt.config import JWTSettings
+from app.core.auth.providers.api_key.config import APIKeySettings
 
 # Settings are loaded from environment or use defaults
 settings = AuthSettings(
@@ -476,6 +482,7 @@ settings = AuthSettings(
 ```tree
 app/core/auth/providers/oauth2/
 ├── __init__.py
+├── config.py          # Provider-specific settings (OAuth2Settings)
 ├── dependencies.py    # If provider needs external dependencies
 ├── factory.py         # Provider factory with @ProviderRegistry.register
 ├── provider.py        # AuthProvider implementation

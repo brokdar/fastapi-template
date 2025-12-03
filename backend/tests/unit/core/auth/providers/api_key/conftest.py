@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 from fastapi import Request
 
+from app.core.auth.providers.api_key.config import APIKeySettings
 from app.core.auth.providers.api_key.models import APIKey
 from app.core.auth.providers.api_key.provider import APIKeyProvider
 from app.core.security.hasher import BCryptAPIKeyService
@@ -14,6 +15,18 @@ from app.domains.users.models import User
 # Valid test API key format: sk_ + 64 hex chars = 67 total
 VALID_TEST_KEY = "sk_0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 VALID_TEST_KEY_PREFIX = "sk_012345678"  # First 12 chars
+
+
+@pytest.fixture
+def test_api_key_settings() -> APIKeySettings:
+    """Provide test APIKeySettings instance for provider and router creation.
+
+    Uses very high rate limits to avoid rate limiting affecting tests.
+    """
+    return APIKeySettings(
+        create_rate_limit="1000/minute",
+        delete_rate_limit="1000/minute",
+    )
 
 
 @pytest.fixture
@@ -29,12 +42,11 @@ def mock_get_api_key_service() -> Mock:
 
 
 @pytest.fixture
-def api_key_provider(mock_get_api_key_service: Mock) -> APIKeyProvider:
+def api_key_provider(
+    mock_get_api_key_service: Mock, test_api_key_settings: APIKeySettings
+) -> APIKeyProvider:
     """Provide APIKeyProvider instance with default settings."""
-    return APIKeyProvider(
-        get_api_key_service=mock_get_api_key_service,
-        header_name="X-API-Key",
-    )
+    return APIKeyProvider(mock_get_api_key_service, test_api_key_settings)
 
 
 @pytest.fixture

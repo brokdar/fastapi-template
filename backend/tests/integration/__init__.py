@@ -7,7 +7,8 @@ from app.config import (
     LogSettings,
     Settings,
 )
-from app.core.auth.config import APIKeySettings, AuthSettings
+from app.core.auth.config import AuthSettings
+from app.core.auth.providers.api_key.config import APIKeySettings
 
 
 class IntegrationSettings(Settings):
