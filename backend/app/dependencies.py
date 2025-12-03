@@ -9,8 +9,10 @@ from typing import Annotated
 from fastapi import Depends
 
 from app.config import get_settings
+from app.core.auth.providers.api_key.dependencies import APIKeyDeps
 from app.core.auth.providers.api_key.repositories import APIKeyRepository
 from app.core.auth.providers.api_key.services import APIKeyService
+from app.core.auth.providers.types import ProviderDeps
 from app.core.auth.services import AuthService
 from app.core.auth.setup import create_auth_service
 from app.core.security.hasher import default_api_key_service
@@ -87,9 +89,17 @@ def get_api_key_service(
 UserServiceDependency = Annotated[UserService, Depends(get_user_service)]
 APIKeyServiceDependency = Annotated[APIKeyService, Depends(get_api_key_service)]
 
+# Build typed provider dependencies
+provider_deps: dict[str, ProviderDeps] = {}
+
+if settings.auth.api_key.enabled:
+    provider_deps["api_key"] = APIKeyDeps(
+        get_api_key_service=get_api_key_service,
+    )
+
 # Create auth service at module level (Null Object pattern: always AuthService, may have no providers)
 auth_service: AuthService = create_auth_service(
     settings=settings,
     get_user_service=get_user_service,
-    get_api_key_service=get_api_key_service,
+    provider_deps=provider_deps,
 )
