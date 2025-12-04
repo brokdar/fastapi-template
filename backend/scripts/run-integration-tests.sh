@@ -25,6 +25,12 @@ export AUTH__ENABLED="true"
 export AUTH__JWT__ENABLED="true"
 export AUTH__API_KEY__ENABLED="true"
 
+# High rate limits for integration tests to avoid rate limiting
+export AUTH__JWT__LOGIN_RATE_LIMIT="1000/minute"
+export AUTH__JWT__REFRESH_RATE_LIMIT="1000/minute"
+export AUTH__API_KEY__CREATE_RATE_LIMIT="1000/minute"
+export AUTH__API_KEY__DELETE_RATE_LIMIT="1000/minute"
+
 export SUPER_USER__NAME="testadmin"
 export SUPER_USER__EMAIL="testadmin@example.com"
 export SUPER_USER__PASSWORD="testpass123"

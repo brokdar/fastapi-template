@@ -8,6 +8,7 @@ from fastapi.security import APIKeyHeader
 from fastapi.security.base import SecurityBase
 
 from app.core.auth.protocols import AuthenticationUserService
+from app.core.auth.providers.api_key.config import APIKeySettings
 from app.core.auth.providers.base import AuthProvider
 from app.domains.users.exceptions import UserNotFoundError
 from app.domains.users.models import User
@@ -30,16 +31,17 @@ class APIKeyProvider(AuthProvider):
     def __init__(
         self,
         get_api_key_service: Callable[..., APIKeyService],
-        header_name: str = "X-API-Key",
+        settings: APIKeySettings,
     ) -> None:
         """Initialize API Key provider.
 
         Args:
             get_api_key_service: Dependency factory for APIKeyService.
-            header_name: HTTP header name for API key (default: X-API-Key).
+            settings: API Key configuration settings.
         """
-        self._header_name: str = header_name
-        self._get_api_key_service: Callable[..., APIKeyService] = get_api_key_service
+        self._settings = settings
+        self._header_name = settings.header_name
+        self._get_api_key_service = get_api_key_service
 
     def can_authenticate(self, request: Request) -> bool:
         """Check if request has API key header.
@@ -133,4 +135,4 @@ class APIKeyProvider(AuthProvider):
         # Inline import to avoid circular dependency: router imports provider dependencies
         from app.core.auth.providers.api_key.router import create_api_key_router
 
-        return create_api_key_router(self._get_api_key_service)
+        return create_api_key_router(self._get_api_key_service, self._settings)

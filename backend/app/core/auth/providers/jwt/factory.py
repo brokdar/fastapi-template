@@ -44,9 +44,4 @@ class JWTProviderFactory:
 
         from app.core.auth.providers.jwt.provider import JWTAuthProvider
 
-        return JWTAuthProvider(
-            secret_key=settings.auth.jwt.secret_key.get_secret_value(),
-            algorithm=settings.auth.jwt.algorithm,
-            access_token_expire_minutes=settings.auth.jwt.access_token_expire_minutes,
-            refresh_token_expire_days=settings.auth.jwt.refresh_token_expire_days,
-        )
+        return JWTAuthProvider(settings.auth.jwt)

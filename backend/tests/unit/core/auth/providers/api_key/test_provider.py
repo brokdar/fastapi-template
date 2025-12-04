@@ -1,4 +1,7 @@
-"""Test suite for API Key authentication provider."""
+"""Test suite for API Key authentication provider.
+
+Fixtures are provided by conftest.py in this directory.
+"""
 
 from unittest.mock import AsyncMock, Mock
 
@@ -6,6 +9,7 @@ import pytest
 from fastapi import APIRouter, Request
 from fastapi.security import APIKeyHeader
 
+from app.core.auth.providers.api_key.config import APIKeySettings
 from app.core.auth.providers.api_key.exceptions import (
     APIKeyExpiredError,
     InvalidAPIKeyError,
@@ -16,88 +20,26 @@ from app.domains.users.exceptions import UserNotFoundError
 from app.domains.users.models import User
 
 
-@pytest.fixture
-def mock_get_api_key_service() -> Mock:
-    """Provide mock get_api_key_service callable for router creation."""
-    return Mock()
-
-
-@pytest.fixture
-def api_key_provider(mock_get_api_key_service: Mock) -> APIKeyProvider:
-    """Provide APIKeyProvider instance with default settings."""
-    return APIKeyProvider(get_api_key_service=mock_get_api_key_service)
-
-
-@pytest.fixture
-def sample_user() -> User:
-    """Provide sample User instance for testing."""
-    return User(
-        id=1,
-        username="testuser",
-        email="test@example.com",
-        hashed_password="$2b$12$KIXqZHpJxV5XnV2Z8ZzJXe",
-        is_active=True,
-    )
-
-
-@pytest.fixture
-def inactive_user() -> User:
-    """Provide inactive User instance for testing."""
-    return User(
-        id=2,
-        username="inactiveuser",
-        email="inactive@example.com",
-        hashed_password="$2b$12$KIXqZHpJxV5XnV2Z8ZzJXe",
-        is_active=False,
-    )
-
-
-@pytest.fixture
-def mock_user_service() -> AsyncMock:
-    """Provide mocked AuthenticationUserService."""
-    service = AsyncMock()
-    service.parse_id = Mock(side_effect=lambda x: int(x))
-    return service
-
-
-@pytest.fixture
-def mock_request_with_api_key() -> Mock:
-    """Provide mocked Request with valid X-API-Key header."""
-    request = Mock(spec=Request)
-    request.headers = Mock()
-    request.headers.get = Mock(return_value="sk_test_valid_key")
-    return request
-
-
-@pytest.fixture
-def mock_request_without_api_key() -> Mock:
-    """Provide mocked Request without X-API-Key header."""
-    request = Mock(spec=Request)
-    request.headers = Mock()
-    request.headers.get = Mock(return_value=None)
-    return request
-
-
 class TestAPIKeyProviderInitialization:
     """Test suite for APIKeyProvider initialization."""
 
-    def test_creates_provider_with_default_header_name(
-        self, mock_get_api_key_service: Mock
+    def test_creates_provider_with_settings(
+        self,
+        mock_get_api_key_service: Mock,
+        test_api_key_settings: APIKeySettings,
     ) -> None:
-        """Test provider creation with default X-API-Key header."""
-        provider = APIKeyProvider(get_api_key_service=mock_get_api_key_service)
+        """Test provider creation with settings."""
+        provider = APIKeyProvider(mock_get_api_key_service, test_api_key_settings)
 
-        assert provider._header_name == "X-API-Key"
+        assert provider._header_name == test_api_key_settings.header_name
         assert provider.name == "api_key"
 
     def test_creates_provider_with_custom_header_name(
         self, mock_get_api_key_service: Mock
     ) -> None:
-        """Test provider creation with custom header name."""
-        provider = APIKeyProvider(
-            get_api_key_service=mock_get_api_key_service,
-            header_name="Custom-API-Key",
-        )
+        """Test provider creation with custom header name in settings."""
+        settings = APIKeySettings(header_name="Custom-API-Key")
+        provider = APIKeyProvider(mock_get_api_key_service, settings)
 
         assert provider._header_name == "Custom-API-Key"
 
@@ -129,10 +71,8 @@ class TestCanAuthenticate:
         self, mock_get_api_key_service: Mock
     ) -> None:
         """Test can_authenticate checks the configured header name."""
-        provider = APIKeyProvider(
-            get_api_key_service=mock_get_api_key_service,
-            header_name="Custom-Key",
-        )
+        settings = APIKeySettings(header_name="Custom-Key")
+        provider = APIKeyProvider(mock_get_api_key_service, settings)
         request = Mock(spec=Request)
         request.headers = Mock()
         request.headers.get = Mock(
@@ -309,10 +249,8 @@ class TestSecurityScheme:
         self, mock_get_api_key_service: Mock
     ) -> None:
         """Test security scheme uses the configured header name."""
-        provider = APIKeyProvider(
-            get_api_key_service=mock_get_api_key_service,
-            header_name="Custom-API-Key",
-        )
+        settings = APIKeySettings(header_name="Custom-API-Key")
+        provider = APIKeyProvider(mock_get_api_key_service, settings)
         scheme = provider.get_security_scheme()
 
         assert scheme.model.name == "Custom-API-Key"  # type: ignore[attr-defined]

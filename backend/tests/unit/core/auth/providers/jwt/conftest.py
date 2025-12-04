@@ -7,26 +7,36 @@ from unittest.mock import AsyncMock, Mock
 import jwt
 import pytest
 from fastapi import Request
+from pydantic import SecretStr
 
+from app.core.auth.providers.jwt.config import JWTSettings
 from app.core.auth.providers.jwt.provider import JWTAuthProvider
 from app.domains.users.models import User
 
 
 @pytest.fixture
-def secret_key() -> str:
-    """Provide valid secret key for JWT operations."""
-    return "test_secret_key_with_minimum_32_characters_required"
+def test_jwt_settings() -> JWTSettings:
+    """Provide test JWTSettings instance for provider and router creation.
+
+    Uses very high rate limits to avoid rate limiting affecting tests.
+    """
+    return JWTSettings(
+        secret_key=SecretStr("test_secret_key_with_minimum_32_characters_required"),
+        login_rate_limit="1000/minute",
+        refresh_rate_limit="1000/minute",
+    )
 
 
 @pytest.fixture
-def jwt_provider(secret_key: str) -> JWTAuthProvider:
+def secret_key(test_jwt_settings: JWTSettings) -> str:
+    """Provide valid secret key for JWT operations."""
+    return test_jwt_settings.secret_key.get_secret_value()
+
+
+@pytest.fixture
+def jwt_provider(test_jwt_settings: JWTSettings) -> JWTAuthProvider:
     """Provide JWTAuthProvider instance with default settings."""
-    return JWTAuthProvider(
-        secret_key=secret_key,
-        algorithm="HS256",
-        access_token_expire_minutes=15,
-        refresh_token_expire_days=7,
-    )
+    return JWTAuthProvider(test_jwt_settings)
 
 
 @pytest.fixture

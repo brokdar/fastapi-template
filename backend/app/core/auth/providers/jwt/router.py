@@ -6,12 +6,14 @@ This module creates FastAPI router with JWT authentication endpoints.
 from typing import Annotated
 
 import structlog
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from fastapi.security import OAuth2PasswordRequestForm
 
 from app.core.auth.exceptions import InactiveUserError
+from app.core.auth.providers.jwt.config import JWTSettings
 from app.core.auth.providers.jwt.provider import JWTAuthProvider
 from app.core.auth.providers.jwt.schemas import RefreshTokenRequest, TokenResponse
+from app.core.ratelimit import limiter
 from app.dependencies import get_user_service
 from app.domains.users.exceptions import InvalidCredentialsError, UserNotFoundError
 from app.domains.users.services import UserService
@@ -19,11 +21,12 @@ from app.domains.users.services import UserService
 logger = structlog.get_logger("auth.provider.jwt.router")
 
 
-def create_jwt_router(provider: JWTAuthProvider) -> APIRouter:
+def create_jwt_router(provider: JWTAuthProvider, settings: JWTSettings) -> APIRouter:
     """Create JWT router with provider instance bound via closure.
 
     Args:
         provider: JWT authentication provider instance.
+        settings: JWT settings for rate limit configuration.
 
     Returns:
         APIRouter containing JWT authentication endpoints.
@@ -36,16 +39,19 @@ def create_jwt_router(provider: JWTAuthProvider) -> APIRouter:
         summary="Login with username and password",
         description="Authenticate user credentials and receive access and refresh tokens.",
     )
+    @limiter.limit(settings.login_rate_limit)
     async def login(
+        request: Request,
         form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
         user_service: UserService = Depends(get_user_service),
     ) -> TokenResponse:
         """Authenticate user and return JWT tokens.
 
         Validates user credentials and returns both access and refresh tokens
-        if authentication is successful.
+        if authentication is successful. Rate limited per IP address.
 
         Args:
+            request: FastAPI request object (required for rate limiting).
             form_data: OAuth2 password form containing username and password.
             user_service: User service implementing authentication operations.
 
@@ -100,17 +106,20 @@ def create_jwt_router(provider: JWTAuthProvider) -> APIRouter:
         summary="Refresh access token",
         description="Exchange refresh token for new access and refresh tokens (token rotation).",
     )
+    @limiter.limit(settings.refresh_rate_limit)
     async def refresh(
-        request: RefreshTokenRequest,
+        request: Request,
+        token_data: RefreshTokenRequest,
         user_service: UserService = Depends(get_user_service),
     ) -> TokenResponse:
         """Refresh access token using refresh token.
 
         Validates the refresh token and issues new access and refresh tokens.
-        Implements token rotation for enhanced security.
+        Implements token rotation for enhanced security. Rate limited per IP address.
 
         Args:
-            request: Refresh token request containing the refresh token.
+            request: FastAPI request object (required for rate limiting).
+            token_data: Refresh token request containing the refresh token.
             user_service: User service implementing authentication operations.
 
         Returns:
@@ -123,7 +132,7 @@ def create_jwt_router(provider: JWTAuthProvider) -> APIRouter:
             InactiveUserError: If user account is inactive.
         """
         user_id_str = provider.verify_token(
-            request.refresh_token, expected_type="refresh"
+            token_data.refresh_token, expected_type="refresh"
         )
         user_id = user_service.parse_id(user_id_str)
 

@@ -9,11 +9,13 @@ import pytest
 from fastapi import Request
 from fastapi.openapi.models import OAuth2
 from fastapi.security import OAuth2PasswordBearer
+from pydantic import SecretStr
 
 from app.core.auth.exceptions import (
     InvalidTokenError,
     TokenExpiredError,
 )
+from app.core.auth.providers.jwt.config import JWTAlgorithm, JWTSettings
 from app.core.auth.providers.jwt.provider import JWTAuthProvider
 from app.core.auth.providers.jwt.schemas import TokenResponse
 from app.domains.users.exceptions import InvalidUserIDError, UserNotFoundError
@@ -23,70 +25,35 @@ from app.domains.users.models import User
 class TestJWTAuthProviderInitialization:
     """Test suite for JWTAuthProvider initialization."""
 
-    def test_creates_provider_with_valid_secret_key(self, secret_key: str) -> None:
+    def test_creates_provider_with_settings(
+        self, test_jwt_settings: JWTSettings
+    ) -> None:
         """Test successful provider creation with valid configuration."""
-        provider: JWTAuthProvider = JWTAuthProvider(
-            secret_key=secret_key,
-            algorithm="HS256",
-            access_token_expire_minutes=30,
-            refresh_token_expire_days=14,
-        )
+        provider = JWTAuthProvider(test_jwt_settings)
 
-        assert provider.secret_key == secret_key
-        assert provider.algorithm == "HS256"
-        assert provider.access_token_expire_minutes == 30
-        assert provider.refresh_token_expire_days == 14
+        assert provider.secret_key == test_jwt_settings.secret_key.get_secret_value()
+        assert provider.algorithm == test_jwt_settings.algorithm
+        assert (
+            provider.access_token_expire_minutes
+            == test_jwt_settings.access_token_expire_minutes
+        )
+        assert (
+            provider.refresh_token_expire_days
+            == test_jwt_settings.refresh_token_expire_days
+        )
         assert provider.name == "jwt"
 
-    def test_raises_value_error_when_secret_key_too_short(self) -> None:
-        """Test ValueError is raised when secret key is less than 32 characters."""
-        with pytest.raises(
-            ValueError, match="JWT secret key must be at least 32 characters"
-        ):
-            JWTAuthProvider(secret_key="short_key")
-
-    @pytest.mark.parametrize(
-        "algorithm",
-        ["RS256", "ES256", "PS256", "INVALID"],
-        ids=["rsa", "elliptic_curve", "pss", "invalid"],
-    )
-    def test_raises_value_error_when_algorithm_unsupported(
-        self, secret_key: str, algorithm: str
-    ) -> None:
-        """Test ValueError is raised for unsupported algorithms."""
-        with pytest.raises(ValueError, match=f"Unsupported algorithm: {algorithm}"):
-            JWTAuthProvider(secret_key=secret_key, algorithm=algorithm)
-
-    @pytest.mark.parametrize(
-        "algorithm",
-        ["HS256", "HS384", "HS512"],
-        ids=["hs256", "hs384", "hs512"],
-    )
-    def test_creates_provider_with_supported_algorithms(
-        self, secret_key: str, algorithm: str
-    ) -> None:
-        """Test provider creation with all supported HMAC algorithms."""
-        provider: JWTAuthProvider = JWTAuthProvider(
-            secret_key=secret_key, algorithm=algorithm
-        )
-
-        assert provider.algorithm == algorithm
-
-    def test_sets_default_expiration_times(self, secret_key: str) -> None:
-        """Test provider uses default expiration values when not specified."""
-        provider: JWTAuthProvider = JWTAuthProvider(secret_key=secret_key)
-
-        assert provider.access_token_expire_minutes == 15
-        assert provider.refresh_token_expire_days == 7
-
-    def test_sets_custom_expiration_times(self, secret_key: str) -> None:
-        """Test provider accepts custom expiration values."""
-        provider: JWTAuthProvider = JWTAuthProvider(
-            secret_key=secret_key,
+    def test_creates_provider_with_custom_settings(self, secret_key: str) -> None:
+        """Test provider creation with custom expiration values."""
+        settings = JWTSettings(
+            secret_key=SecretStr(secret_key),
+            algorithm="HS384",
             access_token_expire_minutes=60,
             refresh_token_expire_days=30,
         )
+        provider = JWTAuthProvider(settings)
 
+        assert provider.algorithm == "HS384"
         assert provider.access_token_expire_minutes == 60
         assert provider.refresh_token_expire_days == 30
 
@@ -304,12 +271,11 @@ class TestTokenVerification:
         ids=["hs256", "hs384", "hs512"],
     )
     def test_verify_token_with_different_algorithms(
-        self, secret_key: str, algorithm: str
+        self, secret_key: str, algorithm: JWTAlgorithm
     ) -> None:
         """Test token verification works with all supported algorithms."""
-        provider: JWTAuthProvider = JWTAuthProvider(
-            secret_key=secret_key, algorithm=algorithm
-        )
+        settings = JWTSettings(secret_key=SecretStr(secret_key), algorithm=algorithm)
+        provider = JWTAuthProvider(settings)
         token = provider.create_access_token("1")
 
         user_id = provider.verify_token(token, expected_type="access")

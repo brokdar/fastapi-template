@@ -5,7 +5,6 @@ refresh token support, including token rotation for enhanced security.
 """
 
 from datetime import UTC, datetime, timedelta
-from typing import Any
 
 import jwt
 import structlog
@@ -19,6 +18,7 @@ from app.core.auth.exceptions import (
 )
 from app.core.auth.protocols import AuthenticationUserService
 from app.core.auth.providers.base import AuthProvider
+from app.core.auth.providers.jwt.config import JWTSettings
 from app.core.auth.providers.jwt.schemas import TokenPayload, TokenResponse
 from app.domains.users.exceptions import UserNotFoundError
 from app.domains.users.models import User
@@ -43,33 +43,17 @@ class JWTAuthProvider(AuthProvider):
 
     name = "jwt"
 
-    def __init__(
-        self,
-        secret_key: str,
-        algorithm: str = "HS256",
-        access_token_expire_minutes: int = 15,
-        refresh_token_expire_days: int = 7,
-    ) -> None:
+    def __init__(self, settings: JWTSettings) -> None:
         """Initialize JWT authentication provider.
 
         Args:
-            secret_key: Secret key for signing tokens (minimum 32 characters).
-            algorithm: JWT signing algorithm (must be HS256 for RFC compliance).
-            access_token_expire_minutes: Access token expiration in minutes.
-            refresh_token_expire_days: Refresh token expiration in days.
-
-        Raises:
-            ValueError: If secret_key is too short or algorithm is not supported.
+            settings: JWT configuration settings (validated by Pydantic).
         """
-        if len(secret_key) < 32:
-            raise ValueError("JWT secret key must be at least 32 characters")
-        if algorithm not in ["HS256", "HS384", "HS512"]:
-            raise ValueError(f"Unsupported algorithm: {algorithm}")
-
-        self.secret_key = secret_key
-        self.algorithm = algorithm
-        self.access_token_expire_minutes = access_token_expire_minutes
-        self.refresh_token_expire_days = refresh_token_expire_days
+        self._settings = settings
+        self.secret_key = settings.secret_key.get_secret_value()
+        self.algorithm = settings.algorithm
+        self.access_token_expire_minutes = settings.access_token_expire_minutes
+        self.refresh_token_expire_days = settings.refresh_token_expire_days
 
     def _create_token(
         self, user_id: str, token_type: str, expire_delta: timedelta
@@ -87,7 +71,7 @@ class JWTAuthProvider(AuthProvider):
         now = datetime.now(UTC)
         expire = now + expire_delta
 
-        payload: dict[str, Any] = {
+        payload: dict[str, str | int] = {
             "sub": user_id,
             "exp": int(expire.timestamp()),
             "iat": int(now.timestamp()),
@@ -336,4 +320,4 @@ class JWTAuthProvider(AuthProvider):
         """
         from app.core.auth.providers.jwt.router import create_jwt_router
 
-        return create_jwt_router(self)
+        return create_jwt_router(self, self._settings)

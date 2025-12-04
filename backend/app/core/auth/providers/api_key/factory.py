@@ -54,7 +54,4 @@ class APIKeyProviderFactory:
 
         from app.core.auth.providers.api_key.provider import APIKeyProvider
 
-        return APIKeyProvider(
-            get_api_key_service=deps.get_api_key_service,
-            header_name=settings.auth.api_key.header_name,
-        )
+        return APIKeyProvider(deps.get_api_key_service, settings.auth.api_key)
