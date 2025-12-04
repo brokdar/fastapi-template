@@ -1,4 +1,6 @@
 from functools import lru_cache
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as get_version
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, PostgresDsn, SecretStr, computed_field
@@ -41,7 +43,6 @@ class Settings(BaseSettings):
     """Application configuration settings."""
 
     environment: Environment = "development"
-    version: str = "1.0.0"
     api_path: str = "/api/v1"
     application_name: str = "FastAPI Template"
     cors_origins: list[str] = ["*"]
@@ -57,6 +58,19 @@ class Settings(BaseSettings):
         env_ignore_empty=True,
         extra="ignore",
     )
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def version(self) -> str:
+        """Get application version from package metadata.
+
+        Returns:
+            str: Version string from Git tags via hatch-vcs.
+        """
+        try:
+            return get_version("app")
+        except PackageNotFoundError:
+            return "0.0.0.dev0"
 
     @computed_field  # type: ignore[prop-decorator]
     @property
