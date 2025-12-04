@@ -1,4 +1,5 @@
 from functools import lru_cache
+from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as get_version
 from typing import Annotated, Literal
 
@@ -68,8 +69,8 @@ class Settings(BaseSettings):
         """
         try:
             return get_version("app")
-        except Exception:
-            return "0.1.0-dev"
+        except PackageNotFoundError:
+            return "0.0.0.dev0"
 
     @computed_field  # type: ignore[prop-decorator]
     @property

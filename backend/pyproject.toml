@@ -38,7 +38,8 @@ build-backend = "hatchling.build"
 
 [tool.hatch.version]
 source = "vcs"
-raw-options = { root = "..", version_scheme = "guess-next-dev", local_scheme = "no-local-version" }
+fallback-version = "0.0.0.dev0"
+raw-options = { search_parent_directories = true, version_scheme = "guess-next-dev", local_scheme = "no-local-version" }
 
 [tool.uv]
 link-mode = "copy"
