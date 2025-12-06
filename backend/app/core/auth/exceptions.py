@@ -39,6 +39,27 @@ class TokenExpiredError(AuthenticationError):
         super().__init__(message=message)
 
 
+class TokenBlacklistedError(AuthenticationError):
+    """Raised when a blacklisted token is used.
+
+    This exception is raised when a token that has been explicitly revoked
+    (e.g., through logout or token refresh rotation) is presented for
+    authentication.
+
+    Attributes:
+        message: Error message.
+        details: Additional error context.
+    """
+
+    def __init__(self, message: str = "Token has been revoked") -> None:
+        """Initialize TokenBlacklistedError.
+
+        Args:
+            message: Error message describing the revoked token.
+        """
+        super().__init__(message=message)
+
+
 class InactiveUserError(AuthorizationError):
     """Raised when user account is inactive.
 

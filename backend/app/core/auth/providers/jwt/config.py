@@ -3,7 +3,7 @@
 import secrets
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field, SecretStr
+from pydantic import BaseModel, Field, RedisDsn, SecretStr
 
 JWTAlgorithm = Literal["HS256", "HS384", "HS512"]
 
@@ -19,6 +19,9 @@ class JWTSettings(BaseModel):
         refresh_token_expire_days: Refresh token expiration time in days.
         login_rate_limit: Rate limit for login endpoint.
         refresh_rate_limit: Rate limit for token refresh endpoint.
+        logout_rate_limit: Rate limit for logout endpoint.
+        blacklist_enabled: Enable token blacklist for logout and refresh rotation.
+        blacklist_redis_url: Redis URL for blacklist storage.
     """
 
     enabled: bool = Field(
@@ -50,4 +53,16 @@ class JWTSettings(BaseModel):
     refresh_rate_limit: str = Field(
         default="10/minute",
         description="Rate limit for token refresh endpoint",
+    )
+    logout_rate_limit: str = Field(
+        default="10/minute",
+        description="Rate limit for logout endpoint",
+    )
+    blacklist_enabled: bool = Field(
+        default=False,
+        description="Enable token blacklist for logout and refresh token rotation",
+    )
+    blacklist_redis_url: RedisDsn | None = Field(
+        default=None,
+        description="Redis URL for blacklist storage. If None, uses in-memory store.",
     )

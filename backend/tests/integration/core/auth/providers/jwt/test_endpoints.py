@@ -276,6 +276,7 @@ class TestRefreshEndpoint:
             "exp": int((now + timedelta(days=7)).timestamp()),
             "iat": int(now.timestamp()),
             "type": "refresh",
+            "jti": "nonexistent-user-token-jti",
         }
         token_for_nonexistent_user = pyjwt.encode(
             payload,

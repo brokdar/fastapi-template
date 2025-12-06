@@ -44,6 +44,7 @@ def expired_access_token(jwt_settings: dict[str, Any]) -> str:
         "exp": int((now - timedelta(hours=1)).timestamp()),
         "iat": int((now - timedelta(hours=2)).timestamp()),
         "type": "access",
+        "jti": "expired-access-token-jti",
     }
     return jwt.encode(
         payload,
@@ -61,6 +62,7 @@ def expired_refresh_token(jwt_settings: dict[str, Any]) -> str:
         "exp": int((now - timedelta(days=8)).timestamp()),
         "iat": int((now - timedelta(days=15)).timestamp()),
         "type": "refresh",
+        "jti": "expired-refresh-token-jti",
     }
     return jwt.encode(
         payload,
@@ -84,6 +86,7 @@ def access_token_with_wrong_type(jwt_settings: dict[str, Any]) -> str:
         "exp": int((now + timedelta(hours=1)).timestamp()),
         "iat": int(now.timestamp()),
         "type": "refresh",
+        "jti": "wrong-type-access-token-jti",
     }
     return jwt.encode(
         payload,
@@ -101,6 +104,7 @@ def refresh_token_with_wrong_type(jwt_settings: dict[str, Any]) -> str:
         "exp": int((now + timedelta(days=7)).timestamp()),
         "iat": int(now.timestamp()),
         "type": "access",
+        "jti": "wrong-type-refresh-token-jti",
     }
     return jwt.encode(
         payload,
