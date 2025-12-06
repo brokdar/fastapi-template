@@ -1,16 +1,14 @@
 """Unit tests for blacklist store factory."""
 
-from unittest.mock import MagicMock, patch
-
 import pytest
 from pydantic import RedisDsn
 
 from app.core.auth.providers.jwt.blacklist.factory import (
+    LazyRedisBlacklistStore,
     _mask_redis_url,
     create_blacklist_store,
 )
 from app.core.auth.providers.jwt.blacklist.memory import InMemoryTokenBlacklistStore
-from app.core.auth.providers.jwt.blacklist.redis import RedisTokenBlacklistStore
 
 
 class TestCreateBlacklistStore:
@@ -28,31 +26,22 @@ class TestCreateBlacklistStore:
 
         assert isinstance(store, InMemoryTokenBlacklistStore)
 
-    def test_creates_redis_store_when_url_provided(self) -> None:
-        """Test that factory creates Redis store when URL provided."""
-        with patch("redis.asyncio.Redis") as mock_redis_class:
-            mock_redis_client = MagicMock()
-            mock_redis_class.from_url.return_value = mock_redis_client
-            redis_url = RedisDsn("redis://localhost:6379/0")
+    def test_creates_lazy_redis_store_when_url_provided(self) -> None:
+        """Test that factory creates lazy Redis store when URL provided."""
+        redis_url = RedisDsn("redis://localhost:6379/0")
 
-            store = create_blacklist_store(redis_url=redis_url)
+        store = create_blacklist_store(redis_url=redis_url)
 
-            assert isinstance(store, RedisTokenBlacklistStore)
-            mock_redis_class.from_url.assert_called_once_with(
-                "redis://localhost:6379/0"
-            )
+        assert isinstance(store, LazyRedisBlacklistStore)
 
-    def test_passes_redis_client_to_store(self) -> None:
-        """Test that factory passes Redis client to store correctly."""
-        with patch("redis.asyncio.Redis") as mock_redis_class:
-            mock_redis_client = MagicMock()
-            mock_redis_class.from_url.return_value = mock_redis_client
-            redis_url = RedisDsn("redis://localhost:6379/0")
+    def test_lazy_store_has_correct_key_prefix(self) -> None:
+        """Test that lazy store uses default key prefix."""
+        redis_url = RedisDsn("redis://localhost:6379/0")
 
-            store = create_blacklist_store(redis_url=redis_url)
+        store = create_blacklist_store(redis_url=redis_url)
 
-            assert isinstance(store, RedisTokenBlacklistStore)
-            assert store._redis is mock_redis_client
+        assert isinstance(store, LazyRedisBlacklistStore)
+        assert store._key_prefix == "jwt:blacklist:"
 
 
 class TestMaskRedisUrl:
@@ -85,7 +74,6 @@ class TestMaskRedisUrl:
     @pytest.mark.parametrize(
         ("url", "expected"),
         [
-            # RedisDsn normalizes URLs by adding default path /0 when not provided
             (RedisDsn("redis://:password@host:6379"), "redis://:***@host:6379/0"),
             (RedisDsn("redis://user:pass@host:6379"), "redis://user:***@host:6379/0"),
             (RedisDsn("redis://host:6379/0"), "redis://host:6379/0"),

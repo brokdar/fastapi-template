@@ -1,30 +1,85 @@
 """Factory for creating token blacklist store instances."""
 
+from typing import TYPE_CHECKING
+
 import structlog
 from pydantic import RedisDsn
 
 from app.core.auth.providers.jwt.blacklist.memory import InMemoryTokenBlacklistStore
 from app.core.auth.providers.jwt.blacklist.protocols import TokenBlacklistStore
 
+if TYPE_CHECKING:
+    from redis.asyncio import Redis
+
 logger = structlog.get_logger("auth.blacklist.factory")
+
+
+class LazyRedisBlacklistStore(TokenBlacklistStore):
+    """Redis blacklist store with lazy initialization.
+
+    Defers Redis client acquisition until first use, allowing the store
+    to be created before RedisClient.initialize() is called (e.g., during
+    module import). Gets fresh Redis client on each operation to handle
+    connection pool reinitializations (e.g., during tests).
+    """
+
+    def __init__(self, redis_url: RedisDsn, key_prefix: str = "jwt:blacklist:") -> None:
+        """Initialize lazy store with Redis URL.
+
+        Args:
+            redis_url: Redis connection URL for logging.
+            key_prefix: Key prefix for blacklist entries.
+        """
+        self._redis_url = redis_url
+        self._key_prefix = key_prefix
+        self._initialized = False
+
+    def _get_redis(self) -> "Redis":
+        """Get current Redis client from singleton."""
+        from app.core.redis import RedisClient
+
+        if not self._initialized:
+            logger.info(
+                "blacklist_store_initialized",
+                backend="redis",
+                url=_mask_redis_url(self._redis_url),
+            )
+            self._initialized = True
+
+        return RedisClient.get()
+
+    async def add(self, token_jti: str, expires_in_seconds: int) -> None:
+        """Add token to blacklist."""
+        key = f"{self._key_prefix}{token_jti}"
+        await self._get_redis().setex(key, expires_in_seconds, "1")
+
+    async def is_blacklisted(self, token_jti: str) -> bool:
+        """Check if token is blacklisted."""
+        key = f"{self._key_prefix}{token_jti}"
+        result = await self._get_redis().exists(key)
+        return bool(result)
 
 
 def create_blacklist_store(redis_url: RedisDsn | None = None) -> TokenBlacklistStore:
     """Create appropriate blacklist store based on configuration.
 
-    Creates a Redis-based store when a Redis URL is provided, otherwise
+    Creates a lazy Redis-based store when a Redis URL is provided, otherwise
     falls back to an in-memory store. The in-memory store is suitable
     for development and testing.
+
+    The Redis store uses lazy initialization - it won't connect to Redis
+    until the first add() or is_blacklisted() call. This allows the store
+    to be created before RedisClient.initialize() runs in the lifespan.
 
     Args:
         redis_url: Redis connection URL (validated by Pydantic). If None, uses in-memory store.
 
     Returns:
-        TokenBlacklistStore implementation (Redis or in-memory).
+        TokenBlacklistStore implementation (lazy Redis or in-memory).
 
     Example:
         ```python
-        # Production with Redis
+        # Production with Redis (lazy - doesn't require Redis yet)
         store = create_blacklist_store(RedisDsn("redis://localhost:6379/0"))
 
         # Development with in-memory
@@ -32,19 +87,8 @@ def create_blacklist_store(redis_url: RedisDsn | None = None) -> TokenBlacklistS
         ```
     """
     if redis_url:
-        from redis.asyncio import Redis
-
-        from app.core.auth.providers.jwt.blacklist.redis import (
-            RedisTokenBlacklistStore,
-        )
-
-        redis_client = Redis.from_url(str(redis_url))
-        logger.info(
-            "blacklist_store_created",
-            backend="redis",
-            url=_mask_redis_url(redis_url),
-        )
-        return RedisTokenBlacklistStore(redis_client)
+        logger.info("blacklist_store_created", backend="redis", lazy=True)
+        return LazyRedisBlacklistStore(redis_url)
 
     logger.info("blacklist_store_created", backend="memory")
     return InMemoryTokenBlacklistStore()
