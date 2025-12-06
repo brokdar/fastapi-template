@@ -15,7 +15,7 @@ class IntegrationSettings(Settings):
     """Test-specific settings with database and logging overrides."""
 
     postgres: PostgresSettings = PostgresSettings(
-        server="localhost",
+        host="localhost",
         port=5432,
         user="test_user",
         password=SecretStr("test_password"),

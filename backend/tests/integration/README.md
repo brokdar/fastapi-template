@@ -227,7 +227,7 @@ The test script sets these environment variables:
 
 ```bash
 # Database Configuration
-POSTGRES__SERVER=localhost
+POSTGRES__HOST=localhost
 POSTGRES__PORT=5432
 POSTGRES__USER=test_user
 POSTGRES__PASSWORD=test_password

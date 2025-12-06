@@ -24,7 +24,7 @@ class LogSettings(BaseModel):
 class PostgresSettings(BaseModel):
     """PostgreSQL database connection configuration."""
 
-    server: str = "localhost"
+    host: str = "localhost"
     port: Annotated[int, Field(ge=1, le=65535)] = 5432
     user: str = "postgres"
     password: SecretStr = SecretStr("your-secure-password")
@@ -85,7 +85,7 @@ class Settings(BaseSettings):
                 scheme="postgresql+asyncpg",
                 username=self.postgres.user,
                 password=self.postgres.password.get_secret_value(),
-                host=self.postgres.server,
+                host=self.postgres.host,
                 port=self.postgres.port,
                 path=self.postgres.db,
             )
@@ -104,7 +104,7 @@ class Settings(BaseSettings):
                 scheme="postgresql+psycopg",
                 username=self.postgres.user,
                 password=self.postgres.password.get_secret_value(),
-                host=self.postgres.server,
+                host=self.postgres.host,
                 port=self.postgres.port,
                 path=self.postgres.db,
             )

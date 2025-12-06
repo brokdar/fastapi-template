@@ -7,7 +7,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BACKEND_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$BACKEND_DIR"
 
-export POSTGRES__SERVER="localhost"
+export POSTGRES__HOST="localhost"
 export POSTGRES__PORT="5432"
 export POSTGRES__USER="test_user"
 export POSTGRES__PASSWORD="test_password"
