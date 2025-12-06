@@ -227,21 +227,21 @@ The test script sets these environment variables:
 
 ```bash
 # Database Configuration
-DATABASE__SERVER=localhost
-DATABASE__PORT=5432
-DATABASE__USER=test_user
-DATABASE__PASSWORD=test_password
-DATABASE__DB=test_db
+POSTGRES__HOST=localhost
+POSTGRES__PORT=5432
+POSTGRES__USER=test_user
+POSTGRES__PASSWORD=test_password
+POSTGRES__DB=test_db
 
 # Logging Configuration
 LOG__LEVEL=WARNING
 LOG__DISABLE_COLORS=true
 
 # JWT Authentication Configuration
-AUTH__JWT_SECRET_KEY=test-secret-key-min-32-chars-long-for-security
-AUTH__JWT_ALGORITHM=HS256
-AUTH__JWT_ACCESS_TOKEN_EXPIRE_MINUTES=15
-AUTH__JWT_REFRESH_TOKEN_EXPIRE_DAYS=7
+AUTH__JWT__SECRET_KEY=test-secret-key-min-32-chars-long-for-security
+AUTH__JWT__ALGORITHM=HS256
+AUTH__JWT__ACCESS_TOKEN_EXPIRE_MINUTES=15
+AUTH__JWT__REFRESH_TOKEN_EXPIRE_DAYS=7
 
 # Super User Configuration
 SUPER_USER__NAME=testadmin

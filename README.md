@@ -48,9 +48,9 @@ cd fastapi-template
 # Configure environment
 cp .env.example .env
 # Edit .env and set:
-#   - POSTGRES_PASSWORD (strong password)
-#   - JWT_SECRET_KEY (generate: python -c "import secrets; print(secrets.token_urlsafe(32))")
-#   - SUPER_USER_PASSWORD (admin password)
+#   - POSTGRES__PASSWORD (strong password)
+#   - AUTH__JWT__SECRET_KEY (generate: python -c "import secrets; print(secrets.token_urlsafe(32))")
+#   - SUPER_USER__PASSWORD (admin password)
 
 # Start all services
 docker compose up

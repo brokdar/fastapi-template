@@ -21,10 +21,10 @@ class LogSettings(BaseModel):
     disable_colors: bool = False
 
 
-class DatabaseSettings(BaseModel):
-    """Database connection configuration."""
+class PostgresSettings(BaseModel):
+    """PostgreSQL database connection configuration."""
 
-    server: str = "localhost"
+    host: str = "localhost"
     port: Annotated[int, Field(ge=1, le=65535)] = 5432
     user: str = "postgres"
     password: SecretStr = SecretStr("your-secure-password")
@@ -48,7 +48,7 @@ class Settings(BaseSettings):
     cors_origins: list[str] = ["*"]
 
     log: LogSettings = Field(default_factory=LogSettings)
-    database: DatabaseSettings = Field(default_factory=DatabaseSettings)
+    postgres: PostgresSettings = Field(default_factory=PostgresSettings)
     super_user: SuperUserSettings = Field(default_factory=SuperUserSettings)
     auth: AuthSettings = Field(default_factory=AuthSettings)
 
@@ -83,11 +83,11 @@ class Settings(BaseSettings):
         return PostgresDsn(
             MultiHostUrl.build(
                 scheme="postgresql+asyncpg",
-                username=self.database.user,
-                password=self.database.password.get_secret_value(),
-                host=self.database.server,
-                port=self.database.port,
-                path=self.database.db,
+                username=self.postgres.user,
+                password=self.postgres.password.get_secret_value(),
+                host=self.postgres.host,
+                port=self.postgres.port,
+                path=self.postgres.db,
             )
         )
 
@@ -102,11 +102,11 @@ class Settings(BaseSettings):
         return PostgresDsn(
             MultiHostUrl.build(
                 scheme="postgresql+psycopg",
-                username=self.database.user,
-                password=self.database.password.get_secret_value(),
-                host=self.database.server,
-                port=self.database.port,
-                path=self.database.db,
+                username=self.postgres.user,
+                password=self.postgres.password.get_secret_value(),
+                host=self.postgres.host,
+                port=self.postgres.port,
+                path=self.postgres.db,
             )
         )
 
