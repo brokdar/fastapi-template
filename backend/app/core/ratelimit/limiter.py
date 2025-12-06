@@ -23,9 +23,17 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
+from app.config import get_settings
+
+settings = get_settings()
+
 # Shared limiter instance - reusable across any route
 # Uses IP address as the default key function
-limiter = Limiter(key_func=get_remote_address)
+# Optionally uses Redis for distributed rate limiting when storage_uri is configured
+limiter = Limiter(
+    key_func=get_remote_address,
+    storage_uri=settings.rate_limit.storage_uri,
+)
 
 
 def get_user_identifier(request: Request) -> str:

@@ -39,6 +39,12 @@ class SuperUserSettings(BaseModel):
     password: SecretStr = SecretStr("admin")
 
 
+class RateLimitSettings(BaseModel):
+    """Rate limiting configuration."""
+
+    storage_uri: str | None = None
+
+
 class Settings(BaseSettings):
     """Application configuration settings."""
 
@@ -51,6 +57,7 @@ class Settings(BaseSettings):
     postgres: PostgresSettings = Field(default_factory=PostgresSettings)
     super_user: SuperUserSettings = Field(default_factory=SuperUserSettings)
     auth: AuthSettings = Field(default_factory=AuthSettings)
+    rate_limit: RateLimitSettings = Field(default_factory=RateLimitSettings)
 
     model_config = SettingsConfigDict(
         env_nested_delimiter="__",
