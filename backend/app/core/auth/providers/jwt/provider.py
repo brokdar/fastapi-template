@@ -4,6 +4,7 @@ This module implements RFC 7519-compliant JWT authentication with access and
 refresh token support, including token rotation for enhanced security.
 """
 
+import uuid
 from datetime import UTC, datetime, timedelta
 
 import jwt
@@ -11,16 +12,19 @@ import structlog
 from fastapi import APIRouter, Request
 from fastapi.security import OAuth2PasswordBearer
 from fastapi.security.base import SecurityBase
+from redis.exceptions import RedisError
 
 from app.core.auth.exceptions import (
     InvalidTokenError,
+    TokenBlacklistedError,
     TokenExpiredError,
 )
 from app.core.auth.protocols import AuthenticationUserService
 from app.core.auth.providers.base import AuthProvider
+from app.core.auth.providers.jwt.blacklist.protocols import TokenBlacklistStore
 from app.core.auth.providers.jwt.config import JWTSettings
 from app.core.auth.providers.jwt.schemas import TokenPayload, TokenResponse
-from app.domains.users.exceptions import UserNotFoundError
+from app.domains.users.exceptions import InvalidUserIDError, UserNotFoundError
 from app.domains.users.models import User
 
 logger = structlog.get_logger("auth.provider.jwt")
@@ -31,7 +35,8 @@ class JWTAuthProvider(AuthProvider):
 
     Provides stateless authentication using JSON Web Tokens with support for
     access and refresh tokens. Implements token rotation on refresh for
-    enhanced security.
+    enhanced security. Optionally supports token blacklisting for logout
+    and refresh token revocation.
 
     Attributes:
         name: Provider identifier.
@@ -43,17 +48,26 @@ class JWTAuthProvider(AuthProvider):
 
     name = "jwt"
 
-    def __init__(self, settings: JWTSettings) -> None:
+    def __init__(
+        self,
+        settings: JWTSettings,
+        blacklist_store: TokenBlacklistStore | None = None,
+    ) -> None:
         """Initialize JWT authentication provider.
 
         Args:
             settings: JWT configuration settings (validated by Pydantic).
+            blacklist_store: Optional token blacklist store for revocation support.
         """
         self._settings = settings
         self.secret_key = settings.secret_key.get_secret_value()
         self.algorithm = settings.algorithm
         self.access_token_expire_minutes = settings.access_token_expire_minutes
         self.refresh_token_expire_days = settings.refresh_token_expire_days
+        self._blacklist_store = blacklist_store
+        self._blacklist_enabled = (
+            settings.blacklist_enabled and blacklist_store is not None
+        )
 
     def _create_token(
         self, user_id: str, token_type: str, expire_delta: timedelta
@@ -70,12 +84,14 @@ class JWTAuthProvider(AuthProvider):
         """
         now = datetime.now(UTC)
         expire = now + expire_delta
+        jti = str(uuid.uuid4())
 
         payload: dict[str, str | int] = {
             "sub": user_id,
             "exp": int(expire.timestamp()),
             "iat": int(now.timestamp()),
             "type": token_type,
+            "jti": jti,
         }
 
         return jwt.encode(payload, self.secret_key, algorithm=self.algorithm)
@@ -149,7 +165,7 @@ class JWTAuthProvider(AuthProvider):
             expires_in=self.access_token_expire_minutes * 60,
         )
 
-    def verify_token(self, token: str, expected_type: str) -> str:
+    async def verify_token(self, token: str, expected_type: str) -> str:
         """Verify JWT token and extract user ID string with RFC 7519 compliance.
 
         Performs comprehensive token validation:
@@ -159,7 +175,8 @@ class JWTAuthProvider(AuthProvider):
         4. Validates Claims Set as UTF-8 JSON
         5. Checks expiration time (exp claim)
         6. Validates token type matches expected
-        7. Extracts and returns user ID string from sub claim
+        7. Checks if token is blacklisted (if blacklist enabled)
+        8. Extracts and returns user ID string from sub claim
 
         Note: Returns string representation of user ID. The calling code
         (authenticate method) is responsible for parsing the string to the
@@ -175,6 +192,7 @@ class JWTAuthProvider(AuthProvider):
         Raises:
             InvalidTokenError: Token is malformed, invalid signature, or wrong type.
             TokenExpiredError: Token has exceeded its expiration time.
+            TokenBlacklistedError: Token has been revoked.
         """
         try:
             payload = jwt.decode(
@@ -200,6 +218,29 @@ class JWTAuthProvider(AuthProvider):
                     f"Invalid token type: expected {expected_type}, got {token_payload.type}"
                 )
 
+            # Check blacklist (fail-safe: allow token if check fails)
+            if self._blacklist_enabled and self._blacklist_store and token_payload.jti:
+                try:
+                    is_blacklisted = await self._blacklist_store.is_blacklisted(
+                        token_payload.jti
+                    )
+                    if is_blacklisted:
+                        logger.warning(
+                            "token_blacklisted",
+                            jti=token_payload.jti,
+                            user_id=token_payload.sub,
+                        )
+                        raise TokenBlacklistedError()
+                except TokenBlacklistedError:
+                    raise
+                except RedisError as e:
+                    # Fail-safe: allow token if Redis unavailable (prioritize availability)
+                    logger.warning(
+                        "blacklist_check_failed",
+                        error=str(e),
+                        jti=token_payload.jti,
+                    )
+
             logger.debug(
                 "token_verified",
                 user_id=token_payload.sub,
@@ -214,6 +255,74 @@ class JWTAuthProvider(AuthProvider):
         except jwt.InvalidTokenError as e:
             logger.warning("token_invalid", error=str(e))
             raise InvalidTokenError(f"Invalid token: {e!s}") from e
+
+    def get_token_claims(self, token: str) -> TokenPayload:
+        """Decode token and return all claims without full verification.
+
+        This method extracts claims from a token without checking expiration.
+        Useful for blacklisting tokens during logout where the token may be
+        close to expiring.
+
+        Args:
+            token: JWT token string to decode.
+
+        Returns:
+            TokenPayload containing all token claims.
+
+        Raises:
+            InvalidTokenError: Token is malformed or has invalid signature.
+        """
+        try:
+            payload = jwt.decode(
+                token,
+                self.secret_key,
+                algorithms=[self.algorithm],
+                options={
+                    "verify_exp": False,  # Allow expired tokens
+                    "verify_signature": True,
+                },
+            )
+            return TokenPayload(**payload)
+        except jwt.InvalidTokenError as e:
+            logger.warning("token_decode_failed", error=str(e))
+            raise InvalidTokenError(f"Invalid token: {e!s}") from e
+
+    async def blacklist_token(self, token: str) -> None:
+        """Add a token to the blacklist.
+
+        Extracts the JTI from the token and adds it to the blacklist store
+        with a TTL matching the token's remaining lifetime. Does nothing if
+        blacklist is not enabled or token has no JTI.
+
+        Args:
+            token: JWT token to blacklist.
+        """
+        if not self._blacklist_enabled or not self._blacklist_store:
+            return
+
+        try:
+            claims = self.get_token_claims(token)
+            if not claims.jti:
+                logger.debug("token_has_no_jti", sub=claims.sub)
+                return
+
+            # Calculate remaining TTL
+            now = int(datetime.now(UTC).timestamp())
+            ttl = max(claims.exp - now, 0)
+
+            if ttl > 0:
+                await self._blacklist_store.add(claims.jti, ttl)
+                logger.debug(
+                    "token_added_to_blacklist",
+                    jti=claims.jti,
+                    ttl=ttl,
+                    token_type=claims.type,
+                )
+        except InvalidTokenError:
+            logger.debug("cannot_blacklist_invalid_token")
+        except RedisError as e:
+            # Fail-safe: log but don't block logout if Redis unavailable
+            logger.warning("blacklist_add_failed", error=str(e))
 
     def can_authenticate(self, request: Request) -> bool:
         """Check if request contains JWT Bearer token.
@@ -263,13 +372,13 @@ class JWTAuthProvider(AuthProvider):
             return None
 
         try:
-            user_id_str = self.verify_token(token, expected_type="access")
-        except (InvalidTokenError, TokenExpiredError):
+            user_id_str = await self.verify_token(token, expected_type="access")
+        except (InvalidTokenError, TokenExpiredError, TokenBlacklistedError):
             return None
 
         try:
             user_id = user_service.parse_id(user_id_str)
-        except Exception as e:
+        except InvalidUserIDError as e:
             logger.warning(
                 "authentication_failed",
                 reason="invalid_user_id_in_token",

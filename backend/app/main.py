@@ -5,12 +5,13 @@ from fastapi.concurrency import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.routing import APIRoute
 
-from app import dependencies
 from app.config import get_settings
 from app.core.auth.setup import setup_authentication
 from app.core.exceptions.handlers import setup_exception_handlers
 from app.core.logging import RequestLoggingMiddleware, configure_logging
 from app.core.ratelimit import setup_rate_limiter
+from app.core.redis import RedisClient
+from app.dependencies import auth_service
 from app.routes import setup_routes
 
 
@@ -24,13 +25,19 @@ settings = get_settings()
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
-    """Configure logging after uvicorn starts but before handling requests."""
+    """Configure logging and Redis before handling requests."""
     configure_logging(
         log_level=settings.log.level,
         log_file_path=settings.log.file_path,
         disable_colors=settings.log.disable_colors,
     )
+
+    if settings.auth.jwt.blacklist_redis_url:
+        await RedisClient.initialize(settings.auth.jwt.blacklist_redis_url)
+
     yield
+
+    await RedisClient.close()
 
 
 app = FastAPI(
@@ -57,7 +64,7 @@ if settings.cors_origins:
 
 app.add_middleware(RequestLoggingMiddleware)
 
-setup_authentication(app, dependencies.auth_service)
+setup_authentication(app, auth_service)
 setup_routes(app)
 
 if __name__ == "__main__":

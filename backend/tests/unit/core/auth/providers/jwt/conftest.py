@@ -110,6 +110,7 @@ def expired_token(secret_key: str) -> str:
         "exp": int(expired_time.timestamp()),
         "iat": int((expired_time - timedelta(minutes=15)).timestamp()),
         "type": "access",
+        "jti": "expired-token-jti",
     }
 
     return jwt.encode(payload, secret_key, algorithm="HS256")

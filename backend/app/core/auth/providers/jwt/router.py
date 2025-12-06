@@ -1,4 +1,4 @@
-"""JWT authentication routes for login and token refresh.
+"""JWT authentication routes for login, logout, and token refresh.
 
 This module creates FastAPI router with JWT authentication endpoints.
 """
@@ -6,16 +6,21 @@ This module creates FastAPI router with JWT authentication endpoints.
 from typing import Annotated
 
 import structlog
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, Security
 from fastapi.security import OAuth2PasswordRequestForm
 
 from app.core.auth.exceptions import InactiveUserError
 from app.core.auth.providers.jwt.config import JWTSettings
 from app.core.auth.providers.jwt.provider import JWTAuthProvider
-from app.core.auth.providers.jwt.schemas import RefreshTokenRequest, TokenResponse
+from app.core.auth.providers.jwt.schemas import (
+    LogoutResponse,
+    RefreshTokenRequest,
+    TokenResponse,
+)
 from app.core.ratelimit import limiter
-from app.dependencies import get_user_service
+from app.dependencies import auth_service, get_user_service
 from app.domains.users.exceptions import InvalidCredentialsError, UserNotFoundError
+from app.domains.users.models import User
 from app.domains.users.services import UserService
 
 logger = structlog.get_logger("auth.provider.jwt.router")
@@ -115,7 +120,8 @@ def create_jwt_router(provider: JWTAuthProvider, settings: JWTSettings) -> APIRo
         """Refresh access token using refresh token.
 
         Validates the refresh token and issues new access and refresh tokens.
-        Implements token rotation for enhanced security. Rate limited per IP address.
+        Implements token rotation for enhanced security. The old refresh token
+        is blacklisted to prevent reuse. Rate limited per IP address.
 
         Args:
             request: FastAPI request object (required for rate limiting).
@@ -128,10 +134,11 @@ def create_jwt_router(provider: JWTAuthProvider, settings: JWTSettings) -> APIRo
         Raises:
             InvalidTokenError: If refresh token is invalid or malformed.
             TokenExpiredError: If refresh token has expired.
+            TokenBlacklistedError: If refresh token has been revoked.
             UserNotFoundError: If user from token not found.
             InactiveUserError: If user account is inactive.
         """
-        user_id_str = provider.verify_token(
+        user_id_str = await provider.verify_token(
             token_data.refresh_token, expected_type="refresh"
         )
         user_id = user_service.parse_id(user_id_str)
@@ -146,6 +153,7 @@ def create_jwt_router(provider: JWTAuthProvider, settings: JWTSettings) -> APIRo
             )
             raise InactiveUserError(user_id=user.id)
 
+        await provider.blacklist_token(token_data.refresh_token)
         token_response = provider.create_token_response(str(user.id))
 
         logger.info(
@@ -155,5 +163,43 @@ def create_jwt_router(provider: JWTAuthProvider, settings: JWTSettings) -> APIRo
         )
 
         return token_response
+
+    @router.post(
+        "/logout",
+        response_model=LogoutResponse,
+        summary="Logout and invalidate token",
+        description="Blacklist the current access token to prevent further use.",
+    )
+    @limiter.limit(settings.logout_rate_limit)
+    async def logout(
+        request: Request,
+        user: Annotated[User, Security(auth_service.require_user)],
+    ) -> LogoutResponse:
+        """Logout user by blacklisting current access token.
+
+        Extracts the access token from the Authorization header and adds it
+        to the blacklist. The token will be rejected on subsequent requests.
+        Rate limited per IP address.
+
+        Args:
+            request: FastAPI request object (required for rate limiting).
+            user: Authenticated user (validated via require_user dependency).
+
+        Returns:
+            LogoutResponse confirming successful logout.
+        """
+        auth_header = request.headers.get("Authorization", "")
+        parts = auth_header.split()
+        token = parts[1] if len(parts) == 2 else ""
+
+        if token:
+            await provider.blacklist_token(token)
+            logger.info(
+                "user_logged_out",
+                user_id=user.id,
+                username=user.username,
+            )
+
+        return LogoutResponse()
 
     return router

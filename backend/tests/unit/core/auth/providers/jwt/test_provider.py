@@ -191,58 +191,66 @@ class TestTokenResponse:
 class TestTokenVerification:
     """Test suite for JWT token verification."""
 
-    def test_verify_token_returns_user_id_for_valid_access_token(
+    @pytest.mark.asyncio
+    async def test_verify_token_returns_user_id_for_valid_access_token(
         self,
         jwt_provider: JWTAuthProvider,
         valid_access_token: str,
     ) -> None:
         """Test verification returns user ID for valid token."""
-        user_id = jwt_provider.verify_token(valid_access_token, expected_type="access")
+        user_id = await jwt_provider.verify_token(
+            valid_access_token, expected_type="access"
+        )
 
         assert user_id == "1"
 
-    def test_verify_token_returns_user_id_for_valid_refresh_token(
+    @pytest.mark.asyncio
+    async def test_verify_token_returns_user_id_for_valid_refresh_token(
         self,
         jwt_provider: JWTAuthProvider,
         valid_refresh_token: str,
     ) -> None:
         """Test verification returns user ID for valid refresh token."""
-        user_id = jwt_provider.verify_token(
+        user_id = await jwt_provider.verify_token(
             valid_refresh_token, expected_type="refresh"
         )
 
         assert user_id == "1"
 
-    def test_raises_token_expired_error_when_token_expired(
+    @pytest.mark.asyncio
+    async def test_raises_token_expired_error_when_token_expired(
         self,
         jwt_provider: JWTAuthProvider,
         expired_token: str,
     ) -> None:
         """Test TokenExpiredError is raised for expired token."""
         with pytest.raises(TokenExpiredError, match="Token has expired"):
-            jwt_provider.verify_token(expired_token, expected_type="access")
+            await jwt_provider.verify_token(expired_token, expected_type="access")
 
-    def test_raises_invalid_token_error_when_token_malformed(
+    @pytest.mark.asyncio
+    async def test_raises_invalid_token_error_when_token_malformed(
         self,
         jwt_provider: JWTAuthProvider,
         malformed_token: str,
     ) -> None:
         """Test InvalidTokenError is raised for malformed token."""
         with pytest.raises(InvalidTokenError, match="Invalid token"):
-            jwt_provider.verify_token(malformed_token, expected_type="access")
+            await jwt_provider.verify_token(malformed_token, expected_type="access")
 
-    def test_raises_invalid_token_error_when_signature_invalid(
+    @pytest.mark.asyncio
+    async def test_raises_invalid_token_error_when_signature_invalid(
         self,
         jwt_provider: JWTAuthProvider,
         token_with_invalid_signature: str,
     ) -> None:
         """Test InvalidTokenError is raised for invalid signature."""
         with pytest.raises(InvalidTokenError, match="Invalid token"):
-            jwt_provider.verify_token(
+            await jwt_provider.verify_token(
                 token_with_invalid_signature, expected_type="access"
             )
 
-    def test_raises_invalid_token_error_when_token_type_mismatch(
+    @pytest.mark.asyncio
+    async def test_raises_invalid_token_error_when_token_type_mismatch(
         self,
         jwt_provider: JWTAuthProvider,
         valid_access_token: str,
@@ -251,9 +259,10 @@ class TestTokenVerification:
         with pytest.raises(
             InvalidTokenError, match="Invalid token type: expected refresh, got access"
         ):
-            jwt_provider.verify_token(valid_access_token, expected_type="refresh")
+            await jwt_provider.verify_token(valid_access_token, expected_type="refresh")
 
-    def test_raises_invalid_token_error_when_required_claims_missing(
+    @pytest.mark.asyncio
+    async def test_raises_invalid_token_error_when_required_claims_missing(
         self,
         jwt_provider: JWTAuthProvider,
         secret_key: str,
@@ -263,14 +272,15 @@ class TestTokenVerification:
         token = jwt.encode(payload, secret_key, algorithm="HS256")
 
         with pytest.raises(InvalidTokenError, match="Invalid token"):
-            jwt_provider.verify_token(token, expected_type="access")
+            await jwt_provider.verify_token(token, expected_type="access")
 
+    @pytest.mark.asyncio
     @pytest.mark.parametrize(
         "algorithm",
         ["HS256", "HS384", "HS512"],
         ids=["hs256", "hs384", "hs512"],
     )
-    def test_verify_token_with_different_algorithms(
+    async def test_verify_token_with_different_algorithms(
         self, secret_key: str, algorithm: JWTAlgorithm
     ) -> None:
         """Test token verification works with all supported algorithms."""
@@ -278,7 +288,7 @@ class TestTokenVerification:
         provider = JWTAuthProvider(settings)
         token = provider.create_access_token("1")
 
-        user_id = provider.verify_token(token, expected_type="access")
+        user_id = await provider.verify_token(token, expected_type="access")
 
         assert user_id == "1"
 

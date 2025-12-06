@@ -5,6 +5,8 @@ from typing import Any
 
 import httpx
 import pytest
+from asgi_lifespan import LifespanManager
+from fastapi import FastAPI
 from pydantic import SecretStr
 from sqlalchemy import NullPool
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, create_async_engine
@@ -29,6 +31,24 @@ AuthenticatedClientFactory = Callable[
 def integration_settings() -> IntegrationSettings:
     """Provide test-specific settings."""
     return IntegrationSettings()
+
+
+@pytest.fixture
+async def lifespan_app() -> AsyncGenerator[FastAPI, None]:
+    """Provide FastAPI app with lifespan events triggered.
+
+    Uses LifespanManager to properly trigger startup/shutdown events,
+    ensuring Redis, logging, and other lifespan-initialized resources
+    are available during tests.
+
+    Note: We yield the original app (not manager.app) because dependency_overrides
+    must be set on the FastAPI instance, not the wrapped ASGI callable.
+
+    This fixture is function-scoped to ensure each test gets fresh lifespan
+    initialization in its own event loop, avoiding "Event loop is closed" errors.
+    """
+    async with LifespanManager(app):
+        yield app
 
 
 @pytest.fixture(scope="session")
@@ -67,13 +87,13 @@ async def test_session(
 
 
 @pytest.fixture
-def override_get_session(test_session: AsyncSession) -> None:
+def override_get_session(lifespan_app: FastAPI, test_session: AsyncSession) -> None:
     """Override get_session dependency with test session."""
 
     async def _get_test_session() -> AsyncGenerator[AsyncSession, None]:
         yield test_session
 
-    app.dependency_overrides[get_session] = _get_test_session
+    lifespan_app.dependency_overrides[get_session] = _get_test_session
 
 
 @pytest.fixture(scope="session")
@@ -154,12 +174,13 @@ def admin_user_credentials(admin_user_data: dict[str, Any]) -> dict[str, str]:
 
 @pytest.fixture
 async def unauthorized_client(
+    lifespan_app: FastAPI,
     integration_settings: IntegrationSettings,
     override_get_session: None,
 ) -> AsyncGenerator[httpx.AsyncClient, None]:
     """Provide httpx async client without authentication."""
     async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=app),
+        transport=httpx.ASGITransport(app=lifespan_app),
         base_url=f"http://testserver{integration_settings.api_path}",
     ) as client:
         yield client
@@ -167,6 +188,7 @@ async def unauthorized_client(
 
 @pytest.fixture
 def create_authenticated_client(
+    lifespan_app: FastAPI,
     unauthorized_client: httpx.AsyncClient,
     integration_settings: IntegrationSettings,
     ensure_test_users: tuple[User, User],
@@ -185,7 +207,7 @@ def create_authenticated_client(
         token_data = TokenResponse(**login_response.json())
 
         async with httpx.AsyncClient(
-            transport=httpx.ASGITransport(app=app),
+            transport=httpx.ASGITransport(app=lifespan_app),
             base_url=f"http://testserver{integration_settings.api_path}",
             headers={"Authorization": f"Bearer {token_data.access_token}"},
         ) as client:
@@ -216,6 +238,7 @@ async def admin_client(
 
 @pytest.fixture
 async def mock_authenticated_client(
+    lifespan_app: FastAPI,
     integration_settings: IntegrationSettings,
     override_get_session: None,
     ensure_test_users: tuple[User, User],
@@ -226,12 +249,12 @@ async def mock_authenticated_client(
     async def _mock_require_user() -> User:
         return normal_user
 
-    app.dependency_overrides[auth_service.require_user] = _mock_require_user
+    lifespan_app.dependency_overrides[auth_service.require_user] = _mock_require_user
 
     async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=app),
+        transport=httpx.ASGITransport(app=lifespan_app),
         base_url=f"http://testserver{integration_settings.api_path}",
     ) as client:
         yield client
 
-    app.dependency_overrides.pop(auth_service.require_user, None)
+    lifespan_app.dependency_overrides.pop(auth_service.require_user, None)

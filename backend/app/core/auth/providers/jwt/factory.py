@@ -22,6 +22,7 @@ class JWTProviderFactory:
 
     Creates JWTAuthProvider instances when JWT authentication is enabled.
     JWT has a higher priority number (100) so it's tried after API key (50).
+    Optionally creates a token blacklist store if blacklist is enabled.
     """
 
     name = "jwt"
@@ -31,6 +32,10 @@ class JWTProviderFactory:
     @staticmethod
     def create(settings: Settings, deps: ProviderDeps | None) -> AuthProvider | None:
         """Create JWT provider if enabled in settings.
+
+        Creates a blacklist store if blacklist is enabled in settings.
+        The store type (Redis or in-memory) is determined by the
+        blacklist_redis_url setting.
 
         Args:
             settings: Application settings containing JWT configuration.
@@ -44,4 +49,12 @@ class JWTProviderFactory:
 
         from app.core.auth.providers.jwt.provider import JWTAuthProvider
 
-        return JWTAuthProvider(settings.auth.jwt)
+        blacklist_store = None
+        if settings.auth.jwt.blacklist_enabled:
+            from app.core.auth.providers.jwt.blacklist import create_blacklist_store
+
+            blacklist_store = create_blacklist_store(
+                redis_url=settings.auth.jwt.blacklist_redis_url
+            )
+
+        return JWTAuthProvider(settings.auth.jwt, blacklist_store)
