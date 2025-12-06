@@ -5,7 +5,7 @@ services:
     expose:
       - 5432
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES__USER} -d ${POSTGRES__DB}"]
       interval: 10s
       retries: 5
       start_period: 30s
@@ -13,9 +13,9 @@ services:
     env_file:
       - .env
     environment:
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD?Variable not set}
-      - POSTGRES_USER=${POSTGRES_USER?Variable not set}
-      - POSTGRES_DB=${POSTGRES_DB?Variable not set}
+      - POSTGRES_PASSWORD=${POSTGRES__PASSWORD?Variable not set}
+      - POSTGRES_USER=${POSTGRES__USER?Variable not set}
+      - POSTGRES_DB=${POSTGRES__DB?Variable not set}
     volumes:
       - postgres-data:/var/lib/postgresql/data
 
@@ -23,19 +23,6 @@ services:
     command: sh scripts/prestart.sh
     env_file:
       - .env
-    environment:
-      - DATABASE__SERVER=${POSTGRES_HOST}
-      - DATABASE__PORT=${POSTGRES_PORT}
-      - DATABASE__USER=${POSTGRES_USER}
-      - DATABASE__PASSWORD=${POSTGRES_PASSWORD}
-      - DATABASE__DB=${POSTGRES_DB}
-      - SUPER_USER__NAME=${SUPER_USER_NAME}
-      - SUPER_USER__EMAIL=${SUPER_USER_EMAIL}
-      - SUPER_USER__PASSWORD=${SUPER_USER_PASSWORD}
-      - LOG__LEVEL=${LOG_LEVEL:-INFO}
-      - LOG__FILE_PATH=${LOG_FILE_PATH:-}
-      - LOG__DISABLE_COLORS=${LOG_DISABLE_COLORS:-false}
-      - API_PATH=${API_PATH:-/api/v1}
     depends_on:
       db:
         condition: service_healthy
@@ -61,37 +48,6 @@ services:
       retries: 5
     env_file:
       - .env
-    environment:
-      - DATABASE__SERVER=${POSTGRES_HOST}
-      - DATABASE__PORT=${POSTGRES_PORT}
-      - DATABASE__USER=${POSTGRES_USER}
-      - DATABASE__PASSWORD=${POSTGRES_PASSWORD}
-      - DATABASE__DB=${POSTGRES_DB}
-      - SUPER_USER__NAME=${SUPER_USER_NAME:-admin}
-      - SUPER_USER__EMAIL=${SUPER_USER_EMAIL:-admin@example.com}
-      - SUPER_USER__PASSWORD=${SUPER_USER_PASSWORD:-admin}
-      - AUTH__JWT__SECRET_KEY=${JWT_SECRET_KEY:-}
-      - AUTH__JWT__ALGORITHM=${JWT_ALGORITHM:-HS256}
-      - AUTH__JWT__ACCESS_TOKEN_EXPIRE_MINUTES=${JWT_ACCESS_TOKEN_EXPIRE_MINUTES:-15}
-      - AUTH__JWT__REFRESH_TOKEN_EXPIRE_DAYS=${JWT_REFRESH_TOKEN_EXPIRE_DAYS:-7}
-      - AUTH__JWT__LOGIN_RATE_LIMIT=${JWT_LOGIN_RATE_LIMIT:-5/minute}
-      - AUTH__JWT__REFRESH_RATE_LIMIT=${JWT_REFRESH_RATE_LIMIT:-10/minute}
-      - AUTH__API_KEY__MAX_PER_USER=${API_KEY_MAX_PER_USER:-5}
-      - AUTH__API_KEY__DEFAULT_EXPIRATION_DAYS=${API_KEY_DEFAULT_EXPIRATION_DAYS:-30}
-      - AUTH__API_KEY__HEADER_NAME=${API_KEY_HEADER_NAME:-X-API-Key}
-      - AUTH__API_KEY__CREATE_RATE_LIMIT=${API_KEY_CREATE_RATE_LIMIT:-5/minute}
-      - AUTH__API_KEY__DELETE_RATE_LIMIT=${API_KEY_DELETE_RATE_LIMIT:-10/minute}
-      - LOG__LEVEL=${LOG_LEVEL:-INFO}
-      - LOG__FILE_PATH=${LOG_FILE_PATH:-}
-      - LOG__DISABLE_COLORS=${LOG_DISABLE_COLORS:-false}
-      - API_PATH=${API_PATH:-/api/v1}
-      - VERSION=${VERSION:-1.0.0}
-      - APPLICATION_NAME=${APPLICATION_NAME:-FastAPI Template}
-      - CORS_ORIGINS=${CORS_ORIGINS:-["*"]}
-      - ENVIRONMENT=${ENVIRONMENT:-development}
-      - AUTH__ENABLED=${AUTH_ENABLED:-true}
-      - AUTH__JWT__ENABLED=${AUTH_JWT_ENABLED:-true}
-      - AUTH__API_KEY__ENABLED=${AUTH_API_KEY_ENABLED:-false}
     depends_on:
       db:
         condition: service_healthy

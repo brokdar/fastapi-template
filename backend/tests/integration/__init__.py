@@ -3,8 +3,8 @@
 from pydantic import SecretStr
 
 from app.config import (
-    DatabaseSettings,
     LogSettings,
+    PostgresSettings,
     Settings,
 )
 from app.core.auth.config import AuthSettings
@@ -14,7 +14,7 @@ from app.core.auth.providers.api_key.config import APIKeySettings
 class IntegrationSettings(Settings):
     """Test-specific settings with database and logging overrides."""
 
-    database: DatabaseSettings = DatabaseSettings(
+    postgres: PostgresSettings = PostgresSettings(
         server="localhost",
         port=5432,
         user="test_user",

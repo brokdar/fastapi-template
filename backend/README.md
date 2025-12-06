@@ -55,13 +55,13 @@ Edit `.env` and set these critical values:
 
 ```env
 # Database
-POSTGRES_PASSWORD=<strong-password>
+POSTGRES__PASSWORD=<strong-password>
 
 # Authentication (generate with: python -c "import secrets; print(secrets.token_urlsafe(32))")
-JWT_SECRET_KEY=<your-generated-secret>
+AUTH__JWT__SECRET_KEY=<your-generated-secret>
 
 # Admin account
-SUPER_USER_PASSWORD=<admin-password>
+SUPER_USER__PASSWORD=<admin-password>
 ```
 
 #### 3. Start PostgreSQL
