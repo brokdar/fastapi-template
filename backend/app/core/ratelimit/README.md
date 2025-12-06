@@ -49,6 +49,33 @@ Examples:
 
 ## Configuration
 
+### Redis Storage Backend
+
+By default, rate limits are stored in-memory. For distributed environments with multiple application instances, configure Redis as the storage backend:
+
+```bash
+RATE_LIMIT__STORAGE_URI=redis://redis:6379/0
+```
+
+**Important Notes:**
+
+- Use synchronous `redis://` URIs (slowapi is internally synchronous)
+- In-memory storage is suitable for development and single-instance deployments
+- Redis storage is recommended for production environments with multiple instances
+- Ensure Redis is available before the application starts when using Redis storage
+
+**Example Docker Compose Configuration:**
+
+```yaml
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+```
+
+### Auth Rate Limits
+
 Rate limits for auth endpoints are configurable via environment variables:
 
 ```bash
